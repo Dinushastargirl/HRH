@@ -128,41 +128,57 @@ export default function Payroll() {
               <tr className="bg-zinc-50/50">
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Employee</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
-                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Basic</th>
-                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Allowances</th>
-                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Deductions</th>
-                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Net Salary</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Salary A</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Salary B</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">EPF</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Advances</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Cover</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Intensive</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Travelling</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Net Salary</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
               {filteredPayrolls.map((p) => (
-                <tr key={p.id} className="hover:bg-zinc-50/30 transition-colors">
+                <tr key={p.id || `p-${Math.random()}`} className="hover:bg-zinc-50/30 transition-colors">
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500 font-black text-xs">
-                        {p.userName.charAt(0)}
+                        {p.userName?.charAt(0) || '?'}
                       </div>
                       <div>
-                        <p className="font-bold text-zinc-900">{p.userName}</p>
-                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{p.branch}</p>
+                        <p className="font-bold text-zinc-900">{p.userName || 'Unknown'}</p>
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{p.branch || 'General'}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-8 py-5">
-                    <span className="text-sm font-bold text-zinc-700">{months[p.month]} {p.year}</span>
+                    <span className="text-sm font-bold text-zinc-700">{months[p.month] || 'Unknown'} {p.year}</span>
                   </td>
-                  <td className="px-8 py-5 text-sm font-bold text-zinc-900">
-                    LKR {p.basic.toLocaleString()}
+                  <td className="px-8 py-5 text-sm font-bold text-zinc-900 text-right">
+                    {(p.salaryA || 0).toLocaleString()}
                   </td>
-                  <td className="px-8 py-5 text-sm font-bold text-green-600">
-                    +LKR {p.allowances.toLocaleString()}
+                  <td className="px-8 py-5 text-sm font-bold text-zinc-900 text-right">
+                    {(p.salaryB || 0).toLocaleString()}
                   </td>
-                  <td className="px-8 py-5 text-sm font-bold text-red-600">
-                    -LKR {p.deductions.toLocaleString()}
+                  <td className="px-8 py-5 text-sm font-bold text-red-600 text-right">
+                    {(p.epf || 0).toLocaleString()}
                   </td>
-                  <td className="px-8 py-5">
-                    <span className="text-base font-black text-zinc-900">LKR {p.netSalary.toLocaleString()}</span>
+                  <td className="px-8 py-5 text-sm font-bold text-red-600 text-right">
+                    {(p.advances || 0).toLocaleString()}
+                  </td>
+                  <td className="px-8 py-5 text-sm font-bold text-red-600 text-right">
+                    {(p.cover || 0).toLocaleString()}
+                  </td>
+                  <td className="px-8 py-5 text-sm font-bold text-green-600 text-right">
+                    {(p.intensive || 0).toLocaleString()}
+                  </td>
+                  <td className="px-8 py-5 text-sm font-bold text-green-600 text-right">
+                    {(p.travelling || 0).toLocaleString()}
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <span className="text-base font-black text-zinc-900">LKR {(p.netSalary || 0).toLocaleString()}</span>
                   </td>
                   <td className="px-8 py-5">
                     <div className={cn(

@@ -32,13 +32,16 @@ export default function ManagePayroll() {
     const original = payrolls.find(p => p.id === id);
     if (!original) return;
 
-    const allowances = Number(editData.allowances ?? original.allowances);
-    const deductions = Number(editData.deductions ?? original.deductions);
-    const netSalary = original.basic + allowances - deductions;
+    const intensive = Number(editData.intensive ?? original.intensive);
+    const advances = Number(editData.advances ?? original.advances);
+    const travelling = Number(editData.travelling ?? original.travelling);
+    
+    // Recalculate Net: Salary A + Salary B + Intensive + Travelling - EPF - Advances - Cover
+    const netSalary = (original.salaryA || 0) + (original.salaryB || 0) + intensive + travelling - (original.epf || 0) - advances - (original.cover || 0);
 
     mockService.updatePayroll(id, {
       ...editData,
-      netSalary
+      netSalary: isNaN(netSalary) ? 0 : netSalary
     });
     
     toast.success('Payroll updated');
@@ -78,56 +81,85 @@ export default function ManagePayroll() {
       <div className="grid grid-cols-1 gap-4">
         {filteredPayrolls.map((p) => (
           <div 
-            key={p.id}
+            key={p.id || `p-${Math.random()}`}
             className="bg-white p-6 rounded-[2.5rem] border border-zinc-100 shadow-sm hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center gap-6"
           >
             <div className="flex items-center gap-4 min-w-[200px]">
               <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-500 font-black">
-                {p.userName.charAt(0)}
+                {p.userName?.charAt(0) || '?'}
               </div>
               <div>
-                <h3 className="font-bold text-zinc-900">{p.userName}</h3>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{p.branch}</p>
+                <h3 className="font-bold text-zinc-900">{p.userName || 'Unknown'}</h3>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{p.branch || 'General'}</p>
               </div>
             </div>
 
-            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
               <div>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Basic</p>
-                <p className="text-sm font-black text-zinc-900">LKR {p.basic.toLocaleString()}</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Salary A</p>
+                <p className="text-sm font-black text-zinc-900">{(p.salaryA || 0).toLocaleString()}</p>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Salary B</p>
+                <p className="text-sm font-black text-zinc-900">{(p.salaryB || 0).toLocaleString()}</p>
               </div>
               
               <div>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Allowances</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Intensive</p>
                 {editingId === p.id ? (
                   <input 
                     type="number" 
-                    value={editData.allowances ?? p.allowances}
-                    onChange={(e) => setEditData({ ...editData, allowances: Number(e.target.value) })}
+                    value={editData.intensive ?? p.intensive}
+                    onChange={(e) => setEditData({ ...editData, intensive: Number(e.target.value) })}
                     className="w-full px-3 py-1 bg-zinc-50 border border-zinc-100 rounded-lg text-sm font-bold text-green-600 outline-none focus:ring-2 focus:ring-green-500"
                   />
                 ) : (
-                  <p className="text-sm font-black text-green-600">+LKR {p.allowances.toLocaleString()}</p>
+                  <p className="text-sm font-black text-green-600">+{(p.intensive || 0).toLocaleString()}</p>
                 )}
               </div>
 
               <div>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Deductions</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Travelling</p>
                 {editingId === p.id ? (
                   <input 
                     type="number" 
-                    value={editData.deductions ?? p.deductions}
-                    onChange={(e) => setEditData({ ...editData, deductions: Number(e.target.value) })}
+                    value={editData.travelling ?? p.travelling}
+                    onChange={(e) => setEditData({ ...editData, travelling: Number(e.target.value) })}
+                    className="w-full px-3 py-1 bg-zinc-50 border border-zinc-100 rounded-lg text-sm font-bold text-green-600 outline-none focus:ring-2 focus:ring-green-500"
+                  />
+                ) : (
+                  <p className="text-sm font-black text-green-600">+{(p.travelling || 0).toLocaleString()}</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">EPF</p>
+                <p className="text-sm font-black text-red-600">-{(p.epf || 0).toLocaleString()}</p>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Advances</p>
+                {editingId === p.id ? (
+                  <input 
+                    type="number" 
+                    value={editData.advances ?? p.advances}
+                    onChange={(e) => setEditData({ ...editData, advances: Number(e.target.value) })}
                     className="w-full px-3 py-1 bg-zinc-50 border border-zinc-100 rounded-lg text-sm font-bold text-red-600 outline-none focus:ring-2 focus:ring-red-500"
                   />
                 ) : (
-                  <p className="text-sm font-black text-red-600">-LKR {p.deductions.toLocaleString()}</p>
+                  <p className="text-sm font-black text-red-600">-{(p.advances || 0).toLocaleString()}</p>
                 )}
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Cover</p>
+                <p className="text-sm font-black text-red-600">-{(p.cover || 0).toLocaleString()}</p>
               </div>
 
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Net Payout</p>
-                <p className="text-sm font-black text-zinc-900">LKR {p.netSalary.toLocaleString()}</p>
+                <p className="text-sm font-black text-zinc-900">LKR {(p.netSalary || 0).toLocaleString()}</p>
               </div>
             </div>
 

@@ -6,35 +6,51 @@ import { MOCK_EMPLOYEES_DATA } from './constants';
 import bcrypt from 'bcryptjs';
 
 // Initial data setup
-const INITIAL_EMPLOYEES: UserProfile[] = MOCK_EMPLOYEES_DATA.map((emp, i) => ({
-  uid: `emp-${i}`,
-  name: emp.name,
-  email: `${emp.name.toLowerCase().replace(/\s/g, '.')}@hrpulse.com`,
-  username: emp.username || emp.name.toLowerCase().split(' ')[0],
-  password: bcrypt.hashSync(emp.password || 'employee123', 10),
-  role: (emp.role as any) || 'employee',
-  branch: emp.branch,
-  joinDate: emp.joinDate,
-  basic: emp.basic,
-  epf: emp.epf,
-  etf: emp.etf,
-  allowances: emp.allowances,
-  deductions: emp.deductions,
-  net: emp.net,
-  performanceScore: Math.floor(Math.random() * 40) + 60,
-  leaveQuotas: { annual: 20, sick: 10, casual: 7, short: 2 },
-  usedLeaves: { annual: 0, sick: 0, casual: 0, short: 0 },
-}));
+const INITIAL_EMPLOYEES: UserProfile[] = (MOCK_EMPLOYEES_DATA as any[]).map((emp, i) => {
+  const salaryA = emp.salaryA || 0;
+  const salaryB = emp.salaryB || 0;
+  const intensive = emp.intensive || 0;
+  const travelling = emp.travelling || 0;
+  const epf = emp.epf || 0;
+  const advances = emp.advances || 0;
+  const cover = emp.cover || 0;
+  
+  // Recalculate Net: Salary A + Salary B + Intensive + Travelling - EPF - Advances - Cover
+  const calculatedNet = salaryA + salaryB + intensive + travelling - epf - advances - cover;
+  const net = emp.net !== undefined && emp.net !== 0 ? emp.net : calculatedNet;
+
+  return {
+    uid: emp.uid || `emp-${i}`,
+    name: emp.name || 'Unknown Employee',
+    email: emp.email || `${(emp.name || 'unknown').toLowerCase().replace(/\s/g, '.')}@hrpulse.com`,
+    username: emp.username || (emp.name || 'unknown').toLowerCase().split(' ')[0],
+    password: bcrypt.hashSync(emp.password || 'employee123', 10),
+    role: (emp.role as any) || 'employee',
+    branch: emp.branch || 'General',
+    joinDate: emp.joinDate || new Date().toISOString().split('T')[0],
+    salaryA,
+    salaryB,
+    epf,
+    advances,
+    cover,
+    intensive,
+    travelling,
+    net,
+    performanceScore: Math.floor(Math.random() * 40) + 60,
+    leaveQuotas: { annual: 20, sick: 10, casual: 7, short: 2 },
+    usedLeaves: { annual: 0, sick: 0, casual: 0, short: 0 },
+  };
+});
 
 // Helper to get from localStorage
 const get = <T>(key: string, fallback: T): T => {
-  const data = localStorage.getItem(`hr_pulse_${key}`);
+  const data = localStorage.getItem(`hr_pulse_v4_${key}`);
   return data ? JSON.parse(data) : fallback;
 };
 
 // Helper to save to localStorage
 const save = <T>(key: string, data: T) => {
-  localStorage.setItem(`hr_pulse_${key}`, JSON.stringify(data));
+  localStorage.setItem(`hr_pulse_v4_${key}`, JSON.stringify(data));
 };
 
 export const mockService = {
@@ -64,11 +80,12 @@ export const mockService = {
     const index = emps.findIndex(e => e.uid === uid);
     if (index > -1) {
       if (type === 'incentive') {
-        emps[index].allowances += amount;
+        emps[index].intensive += amount;
       } else {
-        emps[index].deductions += amount;
+        emps[index].advances += amount;
       }
-      emps[index].net = emps[index].basic + emps[index].allowances - emps[index].deductions;
+      // Recalculate Net: Salary A + Salary B + Intensive + Travelling - EPF - Advances - Cover
+      emps[index].net = emps[index].salaryA + emps[index].salaryB + emps[index].intensive + emps[index].travelling - emps[index].epf - emps[index].advances - emps[index].cover;
       save('employees', emps);
       return true;
     }
@@ -153,11 +170,11 @@ export const mockService = {
 
   // Payroll
   getPayroll: (uid?: string) => {
-    const all = get<PayrollRecord[]>('payroll', []);
+    let all = get<PayrollRecord[]>('payroll', []);
     if (all.length === 0) {
       // Auto-generate for current month on first load
       mockService.generatePayroll(new Date().getMonth(), new Date().getFullYear());
-      return mockService.getPayroll(uid);
+      all = get<PayrollRecord[]>('payroll', []);
     }
     return uid ? all.filter(p => p.userId === uid) : all;
   },
@@ -174,11 +191,13 @@ export const mockService = {
           userName: emp.name,
           month,
           year,
-          basic: emp.basic,
-          allowances: emp.allowances,
-          deductions: emp.deductions,
+          salaryA: emp.salaryA,
+          salaryB: emp.salaryB,
           epf: emp.epf,
-          etf: emp.etf,
+          advances: emp.advances,
+          cover: emp.cover,
+          intensive: emp.intensive,
+          travelling: emp.travelling,
           netSalary: emp.net,
           status: 'Pending',
           createdAt: new Date().toISOString(),

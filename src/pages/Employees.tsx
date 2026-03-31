@@ -84,19 +84,21 @@ export default function Employees() {
 
   const exportToCSV = () => {
     const headers = [
-      'Branch', 'Name', 'Join Date', 'Basic Salary', 'EPF', 'ETF', 
-      'Allowances', 'Deductions', 'Net Salary', 'Username', 'Role'
+      'Branch', 'Name', 'Join Date', 'Salary A', 'Salary B', 'EPF', 
+      'Advances', 'Cover Dedication', 'Intensive', 'Travelling', 'Net Salary', 'Username', 'Role'
     ];
     
     const rows = filteredEmployees.map(emp => [
       emp.branch,
       emp.name,
       emp.joinDate,
-      emp.basic,
+      emp.salaryA,
+      emp.salaryB,
       emp.epf,
-      emp.etf,
-      emp.allowances,
-      emp.deductions,
+      emp.advances,
+      emp.cover,
+      emp.intensive,
+      emp.travelling,
       emp.net,
       emp.username,
       emp.role
@@ -192,14 +194,14 @@ export default function Employees() {
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Branch</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Name</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Join Date</th>
-                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Basic</th>
+                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Salary A</th>
+                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Salary B</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">EPF</th>
-                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">ETF</th>
-                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Allowances</th>
-                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Deductions</th>
+                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Advances</th>
+                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Cover Dedication</th>
+                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Intensive</th>
+                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Travelling</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Net Salary</th>
-                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Username</th>
-                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Role</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">Actions</th>
               </tr>
             </thead>
@@ -218,11 +220,13 @@ export default function Employees() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-xs font-medium text-zinc-500">{formatDate(emp.joinDate)}</td>
-                  <td className="px-6 py-4 text-xs font-bold text-zinc-900 text-right">{emp.basic.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-xs font-bold text-zinc-900 text-right">{emp.salaryA.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-xs font-bold text-zinc-500 text-right">{emp.salaryB.toLocaleString()}</td>
                   <td className="px-6 py-4 text-xs font-bold text-zinc-500 text-right">{emp.epf.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-xs font-bold text-zinc-500 text-right">{emp.etf.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-xs font-bold text-green-600 text-right">+{emp.allowances.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-xs font-bold text-red-600 text-right">-{emp.deductions.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-xs font-bold text-red-600 text-right">{emp.advances.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-xs font-bold text-red-600 text-right">{emp.cover.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-xs font-bold text-green-600 text-right">{emp.intensive.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-xs font-bold text-green-600 text-right">{emp.travelling.toLocaleString()}</td>
                   <td className="px-6 py-4 text-xs font-black text-zinc-900 text-right bg-zinc-50/50">{emp.net.toLocaleString()}</td>
                   <td className="px-6 py-4 text-xs font-medium text-zinc-500">{emp.username}</td>
                   <td className="px-6 py-4">
@@ -346,9 +350,13 @@ export default function Employees() {
                   const formData = new FormData(e.currentTarget);
                   const data = Object.fromEntries(formData.entries()) as any;
                   
-                  const basic = Number(data.basic);
-                  const allowances = Number(data.allowances);
-                  const deductions = Number(data.deductions);
+                  const salaryA = Number(data.salaryA);
+                  const salaryB = Number(data.salaryB);
+                  const epf = Number(data.epf);
+                  const advances = Number(data.advances);
+                  const cover = Number(data.cover);
+                  const intensive = Number(data.intensive);
+                  const travelling = Number(data.travelling);
 
                   const newEmp: UserProfile = {
                     uid: editingEmp?.uid || `emp-${Date.now()}`,
@@ -359,12 +367,14 @@ export default function Employees() {
                     role: data.role,
                     branch: data.branch,
                     joinDate: data.joinDate,
-                    basic,
-                    epf: Number(data.epf),
-                    etf: Number(data.etf),
-                    allowances,
-                    deductions,
-                    net: basic + allowances - deductions,
+                    salaryA,
+                    salaryB,
+                    epf,
+                    advances,
+                    cover,
+                    intensive,
+                    travelling,
+                    net: salaryA + salaryB + intensive + travelling - epf - advances - cover,
                     performanceScore: editingEmp?.performanceScore || 0,
                     leaveQuotas: editingEmp?.leaveQuotas || { annual: 20, sick: 10, casual: 7, short: 2 },
                     usedLeaves: editingEmp?.usedLeaves || { annual: 0, sick: 0, casual: 0, short: 0 },
@@ -429,38 +439,46 @@ export default function Employees() {
                     <h3 className="text-sm font-black text-zinc-900 border-l-4 border-green-500 pl-3 mt-8">Payroll Details</h3>
                     <div className="grid grid-cols-2 gap-4" id="payroll-fields">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Basic Salary</label>
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Salary A</label>
                         <input 
-                          name="basic" 
+                          name="salaryA" 
                           type="number" 
-                          defaultValue={editingEmp?.basic} 
+                          defaultValue={editingEmp?.salaryA} 
                           required 
                           onChange={(e) => {
                             const form = e.target.form;
                             if (form) {
-                              const basic = Number(e.target.value);
-                              const allowances = Number((form.elements.namedItem('allowances') as HTMLInputElement).value);
-                              const deductions = Number((form.elements.namedItem('deductions') as HTMLInputElement).value);
-                              (form.elements.namedItem('net') as HTMLInputElement).value = (basic + allowances - deductions).toString();
+                              const sA = Number(e.target.value);
+                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
+                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
+                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
+                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
                             }
                           }}
                           className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Allowances</label>
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Salary B</label>
                         <input 
-                          name="allowances" 
+                          name="salaryB" 
                           type="number" 
-                          defaultValue={editingEmp?.allowances} 
+                          defaultValue={editingEmp?.salaryB} 
                           required 
                           onChange={(e) => {
                             const form = e.target.form;
                             if (form) {
-                              const basic = Number((form.elements.namedItem('basic') as HTMLInputElement).value);
-                              const allowances = Number(e.target.value);
-                              const deductions = Number((form.elements.namedItem('deductions') as HTMLInputElement).value);
-                              (form.elements.namedItem('net') as HTMLInputElement).value = (basic + allowances - deductions).toString();
+                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
+                              const sB = Number(e.target.value);
+                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
+                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
+                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
                             }
                           }}
                           className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 
@@ -468,29 +486,117 @@ export default function Employees() {
                       </div>
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">EPF</label>
-                        <input name="epf" type="number" defaultValue={editingEmp?.epf} required className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">ETF</label>
-                        <input name="etf" type="number" defaultValue={editingEmp?.etf} required className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Deductions</label>
                         <input 
-                          name="deductions" 
+                          name="epf" 
                           type="number" 
-                          defaultValue={editingEmp?.deductions} 
+                          defaultValue={editingEmp?.epf} 
                           required 
                           onChange={(e) => {
                             const form = e.target.form;
                             if (form) {
-                              const basic = Number((form.elements.namedItem('basic') as HTMLInputElement).value);
-                              const allowances = Number((form.elements.namedItem('allowances') as HTMLInputElement).value);
-                              const deductions = Number(e.target.value);
-                              (form.elements.namedItem('net') as HTMLInputElement).value = (basic + allowances - deductions).toString();
+                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
+                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
+                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
+                              const epf = Number(e.target.value);
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
+                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
+                            }
+                          }}
+                          className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Advances</label>
+                        <input 
+                          name="advances" 
+                          type="number" 
+                          defaultValue={editingEmp?.advances} 
+                          required 
+                          onChange={(e) => {
+                            const form = e.target.form;
+                            if (form) {
+                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
+                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
+                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
+                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
+                              const advances = Number(e.target.value);
+                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
                             }
                           }}
                           className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-red-500 outline-none" 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Cover Dedication</label>
+                        <input 
+                          name="cover" 
+                          type="number" 
+                          defaultValue={editingEmp?.cover} 
+                          required 
+                          onChange={(e) => {
+                            const form = e.target.form;
+                            if (form) {
+                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
+                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
+                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
+                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
+                              const cover = Number(e.target.value);
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
+                            }
+                          }}
+                          className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-red-500 outline-none" 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Intensive</label>
+                        <input 
+                          name="intensive" 
+                          type="number" 
+                          defaultValue={editingEmp?.intensive} 
+                          required 
+                          onChange={(e) => {
+                            const form = e.target.form;
+                            if (form) {
+                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
+                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
+                              const intensive = Number(e.target.value);
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
+                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
+                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
+                            }
+                          }}
+                          className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Travelling</label>
+                        <input 
+                          name="travelling" 
+                          type="number" 
+                          defaultValue={editingEmp?.travelling} 
+                          required 
+                          onChange={(e) => {
+                            const form = e.target.form;
+                            if (form) {
+                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
+                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
+                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
+                              const travelling = Number(e.target.value);
+                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
+                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
+                            }
+                          }}
+                          className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 
                         />
                       </div>
                       <div className="space-y-2">
@@ -500,6 +606,7 @@ export default function Employees() {
                           type="number" 
                           defaultValue={editingEmp?.net} 
                           required 
+                          readOnly
                           className="w-full px-5 py-3 bg-zinc-100 border border-zinc-100 rounded-2xl text-sm font-black text-zinc-900 focus:ring-2 focus:ring-orange-500 outline-none" 
                         />
                       </div>

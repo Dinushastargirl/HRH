@@ -11,12 +11,18 @@ import {
   LogOut,
   User,
   TrendingUp,
-  Briefcase
+  Briefcase,
+  X
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { cn } from '../lib/utils';
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user, logout } = useAuth();
 
   const menuItems = [
@@ -34,52 +40,76 @@ export default function Sidebar() {
   const filteredMenu = menuItems.filter(item => item.roles.includes(user?.role || ''));
 
   return (
-    <aside className="w-64 bg-white border-r border-zinc-200 h-screen sticky top-0 flex flex-col">
-      <div className="p-6 flex items-center gap-3">
-        <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-200">
-          <Briefcase size={24} />
-        </div>
-        <h1 className="text-xl font-black tracking-tight text-zinc-900">HR PULSE</h1>
-      </div>
+    <>
+      {/* Overlay for mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
 
-      <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-        {filteredMenu.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) => cn(
-              "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200",
-              isActive 
-                ? "bg-orange-50 text-orange-600 shadow-sm" 
-                : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
-            )}
-          >
-            <item.icon size={20} />
-            {item.name}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="p-4 border-t border-zinc-100">
-        <div className="bg-zinc-50 rounded-2xl p-4 mb-4">
-          <div className="flex items-center gap-3 mb-1">
-            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">
-              {user?.name.charAt(0)}
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-zinc-200 flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static lg:h-screen",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-orange-200">
+              <Briefcase size={24} />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-zinc-900 truncate">{user?.name}</p>
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{user?.role}</p>
+            <h1 className="text-xl font-black tracking-tight text-zinc-900">HR PULSE</h1>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 text-zinc-400 hover:text-zinc-600 lg:hidden"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+          {filteredMenu.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              onClick={() => {
+                if (window.innerWidth < 1024) onClose?.();
+              }}
+              className={({ isActive }) => cn(
+                "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200",
+                isActive 
+                  ? "bg-orange-50 text-orange-600 shadow-sm" 
+                  : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+              )}
+            >
+              <item.icon size={20} />
+              {item.name}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-zinc-100">
+          <div className="bg-zinc-50 rounded-2xl p-4 mb-4">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">
+                {user?.name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-zinc-900 truncate">{user?.name}</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{user?.role}</p>
+              </div>
             </div>
           </div>
+          <button 
+            onClick={logout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-all duration-200"
+          >
+            <LogOut size={20} />
+            Logout
+          </button>
         </div>
-        <button 
-          onClick={logout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 transition-all duration-200"
-        >
-          <LogOut size={20} />
-          Logout
-        </button>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

@@ -10,11 +10,13 @@ export interface UserProfile {
   branch: string;
   department?: string;
   joinDate: string;
-  basic: number;
+  salaryA: number;
+  salaryB: number;
   epf: number;
-  etf: number;
-  allowances: number;
-  deductions: number;
+  advances: number;
+  cover: number;
+  intensive: number;
+  travelling: number;
   net: number;
   performanceScore?: number;
   leaveQuotas: {
@@ -80,11 +82,13 @@ export interface PayrollRecord {
   userName: string;
   month: number;
   year: number;
-  basic: number;
-  allowances: number;
-  deductions: number;
+  salaryA: number;
+  salaryB: number;
   epf: number;
-  etf: number;
+  advances: number;
+  cover: number;
+  intensive: number;
+  travelling: number;
   netSalary: number;
   status: 'Paid' | 'Pending';
   createdAt: any;

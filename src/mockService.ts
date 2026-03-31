@@ -154,11 +154,16 @@ export const mockService = {
   // Payroll
   getPayroll: (uid?: string) => {
     const all = get<PayrollRecord[]>('payroll', []);
+    if (all.length === 0) {
+      // Auto-generate for current month on first load
+      mockService.generatePayroll(new Date().getMonth(), new Date().getFullYear());
+      return mockService.getPayroll(uid);
+    }
     return uid ? all.filter(p => p.userId === uid) : all;
   },
   generatePayroll: (month: number, year: number) => {
     const emps = mockService.getEmployees();
-    const payrolls = mockService.getPayroll();
+    const payrolls = get<PayrollRecord[]>('payroll', []);
     
     emps.forEach(emp => {
       const exists = payrolls.find(p => p.userId === emp.uid && p.month === month && p.year === year);

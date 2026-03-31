@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db, auth } from '../../firebase';
+import { db, auth, handleFirestoreError } from '../../firebase';
 import { 
   collection, query, onSnapshot, addDoc, doc, 
   orderBy, where, getDocs, serverTimestamp, updateDoc, getDoc 
 } from 'firebase/firestore';
+import { OperationType } from '../../firebase';
 import { toast } from 'sonner';
 import { 
   BarChart3, Search, Star, Target, 
@@ -54,7 +55,7 @@ export default function PerformanceManagement() {
       setEmployees(snap.docs.map(d => d.data() as UserProfile));
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching employees:", error);
+      handleFirestoreError(error, OperationType.GET, 'users');
       setLoading(false);
     });
     return () => unsubscribe();
@@ -75,7 +76,7 @@ export default function PerformanceManagement() {
       setPerformanceRecords(snap.docs.map(d => ({ id: d.id, ...d.data() })) as PerformanceRecord[]);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching performance records:", error);
+      handleFirestoreError(error, OperationType.GET, 'performance');
       setLoading(false);
     });
     return () => unsubscribe();
@@ -91,8 +92,11 @@ export default function PerformanceManagement() {
         evaluatorId: auth.currentUser?.uid || '',
         evaluatorName: currentUser?.name || 'HR',
         score: rating * 20, // Convert 1-5 to 1-100
-        feedback: feedback,
+        rating: rating,
+        feedback: '', // Employee feedback/self-eval
+        hrFeedback: feedback,
         goals: goals.filter(g => g.trim() !== ''),
+        status: 'Completed',
         createdAt: serverTimestamp() as any,
       };
 
@@ -107,7 +111,7 @@ export default function PerformanceManagement() {
       setIsModalOpen(false);
       resetForm();
     } catch (error: any) {
-      toast.error(error.message);
+      handleFirestoreError(error, OperationType.WRITE, 'performance');
     } finally {
       setSubmitting(false);
     }
@@ -221,16 +225,16 @@ export default function PerformanceManagement() {
                         <Star 
                           key={i} 
                           size={14} 
-                          className={cn(i < (record.score / 20) ? "text-orange-500 fill-orange-500" : "text-zinc-200")} 
+                          className={cn(i < (record.rating || record.score / 20) ? "text-orange-500 fill-orange-500" : "text-zinc-200")} 
                         />
                       ))}
-                      <span className="ml-2 text-sm font-bold text-zinc-900">{(record.score / 20).toFixed(1)}/5</span>
+                      <span className="ml-2 text-sm font-bold text-zinc-900">{(record.rating || record.score / 20).toFixed(1)}/5</span>
                     </div>
                   </td>
                   <td className="px-8 py-5">
                     <p className="text-sm font-bold text-zinc-700">{record.goals.length} Active Goals</p>
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate max-w-[200px]">
-                      {record.goals[0]}...
+                      {record.hrFeedback || record.feedback}
                     </p>
                   </td>
                   <td className="px-8 py-5">

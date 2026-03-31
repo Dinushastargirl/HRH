@@ -90,6 +90,7 @@ export interface PayrollRecord {
   intensive: number;
   travelling: number;
   netSalary: number;
+  cutoffDate?: string; // YYYY-MM-DD
   status: 'Paid' | 'Pending';
   createdAt: Timestamp;
 }
@@ -101,8 +102,11 @@ export interface PerformanceRecord {
   evaluatorId: string;
   evaluatorName: string;
   score: number; // 1-100
-  feedback: string;
+  rating: number; // 1-5
+  feedback: string; // Employee feedback/self-eval
+  hrFeedback: string; // Feedback from HR
   goals: string[];
   selfEvaluation?: string;
+  status: 'Pending' | 'Self-Evaluated' | 'Completed';
   createdAt: Timestamp;
 }

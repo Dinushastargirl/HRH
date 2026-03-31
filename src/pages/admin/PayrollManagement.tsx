@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../../firebase';
+import { db, handleFirestoreError, OperationType } from '../../firebase';
 import { 
   collection, query, onSnapshot, addDoc, doc, 
   orderBy, where, getDocs, serverTimestamp, updateDoc, deleteDoc
@@ -29,6 +29,9 @@ export default function PayrollManagement() {
   const [submitting, setSubmitting] = useState(false);
   const [showInputForm, setShowInputForm] = useState(false);
   const [payrollInputs, setPayrollInputs] = useState<Record<string, Partial<PayrollRecord>>>({});
+  const [editingRecord, setEditingRecord] = useState<PayrollRecord | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [cutoffDate, setCutoffDate] = useState(new Date().toISOString().split('T')[0]);
 
   const branches = ['All', 'Borella', 'Dehiwela', 'Dematagoda', 'Homagama', 'Kadawatha', 'Kiribathgoda', 'Kottawa', 'Office', 'Panadura', 'W2', 'W3', 'W4'];
 
@@ -52,7 +55,7 @@ export default function PayrollManagement() {
       setEmployees(snap.docs.map(d => d.data() as UserProfile));
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching employees:", error);
+      handleFirestoreError(error, OperationType.GET, 'users');
       setLoading(false);
     });
     return () => unsubscribe();
@@ -73,7 +76,7 @@ export default function PayrollManagement() {
       setPayrollHistory(snap.docs.map(d => ({ id: d.id, ...d.data() })) as PayrollRecord[]);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching payroll history:", error);
+      handleFirestoreError(error, OperationType.GET, 'payroll');
       setLoading(false);
     });
     return () => unsubscribe();
@@ -155,6 +158,7 @@ export default function PayrollManagement() {
           intensive: Number(input.intensive || 0),
           travelling: Number(input.travelling || 0),
           netSalary: Number(input.netSalary || 0),
+          cutoffDate: cutoffDate,
           status: 'Paid',
           createdAt: serverTimestamp() as any,
         };
@@ -166,9 +170,47 @@ export default function PayrollManagement() {
       toast.success('Payroll generated successfully');
       setShowInputForm(false);
     } catch (error: any) {
-      toast.error(error.message);
+      handleFirestoreError(error, OperationType.WRITE, 'payroll');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleUpdatePayroll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRecord?.id) return;
+    setSubmitting(true);
+    try {
+      const sA = Number(editingRecord.salaryA);
+      const sB = Number(editingRecord.salaryB);
+      const intensive = Number(editingRecord.intensive);
+      const travelling = Number(editingRecord.travelling);
+      const epf = Number(editingRecord.epf);
+      const advances = Number(editingRecord.advances);
+      const coverDedication = Number(editingRecord.coverDedication);
+      
+      const netSalary = (sA + sB + intensive + travelling) - (epf + advances + coverDedication);
+
+      await updateDoc(doc(db, 'payroll', editingRecord.id), {
+        ...editingRecord,
+        netSalary
+      });
+      toast.success('Payroll record updated');
+      setIsEditModalOpen(false);
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.UPDATE, `payroll/${editingRecord.id}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeletePayroll = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this payroll record?')) return;
+    try {
+      await deleteDoc(doc(db, 'payroll', id));
+      toast.success('Payroll record deleted');
+    } catch (error: any) {
+      handleFirestoreError(error, OperationType.DELETE, `payroll/${id}`);
     }
   };
 
@@ -353,6 +395,25 @@ export default function PayrollManagement() {
                   <td className="px-6 py-4 text-sm text-green-600">{record.intensive.toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm text-zinc-600">{record.travelling.toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm font-black text-zinc-900">{record.netSalary.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <button 
+                        onClick={() => {
+                          setEditingRecord(record);
+                          setIsEditModalOpen(true);
+                        }}
+                        className="p-2 text-zinc-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeletePayroll(record.id!)}
+                        className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {filteredHistory.length > 0 && (
@@ -397,12 +458,23 @@ export default function PayrollManagement() {
                   <h2 className="text-2xl font-black text-zinc-900">Generate Monthly Payroll</h2>
                   <p className="text-zinc-500 font-medium">Input variables for {new Date(0, selectedMonth - 1).toLocaleString('default', { month: 'long' })} {selectedYear}</p>
                 </div>
-                <button 
-                  onClick={() => setShowInputForm(false)}
-                  className="p-3 hover:bg-zinc-100 rounded-2xl transition-all text-zinc-400 hover:text-zinc-900"
-                >
-                  <X size={24} />
-                </button>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Cutoff Date</label>
+                    <input 
+                      type="date" 
+                      value={cutoffDate}
+                      onChange={(e) => setCutoffDate(e.target.value)}
+                      className="px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setShowInputForm(false)}
+                    className="p-3 hover:bg-zinc-100 rounded-2xl transition-all text-zinc-400 hover:text-zinc-900"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 overflow-auto p-8">
@@ -511,6 +583,122 @@ export default function PayrollManagement() {
                   Confirm & Generate
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Edit Modal */}
+      <AnimatePresence>
+        {isEditModalOpen && editingRecord && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-zinc-100 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-zinc-900">Edit Payroll Record</h2>
+                  <p className="text-zinc-500 font-medium">{editingRecord.userName} - {new Date(0, editingRecord.month - 1).toLocaleString('default', { month: 'long' })} {editingRecord.year}</p>
+                </div>
+                <button onClick={() => setIsEditModalOpen(false)} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 rounded-xl transition-all">
+                  <X size={24} />
+                </button>
+              </div>
+              <form onSubmit={handleUpdatePayroll} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Salary-A</label>
+                    <input 
+                      type="number" 
+                      value={editingRecord.salaryA}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, salaryA: Number(e.target.value) })}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Salary-B</label>
+                    <input 
+                      type="number" 
+                      value={editingRecord.salaryB}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, salaryB: Number(e.target.value) })}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">EPF</label>
+                    <input 
+                      type="number" 
+                      value={editingRecord.epf}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, epf: Number(e.target.value) })}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Advances</label>
+                    <input 
+                      type="number" 
+                      value={editingRecord.advances}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, advances: Number(e.target.value) })}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Cover Dedication</label>
+                    <input 
+                      type="number" 
+                      value={editingRecord.coverDedication}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, coverDedication: Number(e.target.value) })}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Intensive</label>
+                    <input 
+                      type="number" 
+                      value={editingRecord.intensive}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, intensive: Number(e.target.value) })}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Travelling</label>
+                    <input 
+                      type="number" 
+                      value={editingRecord.travelling}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, travelling: Number(e.target.value) })}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Cutoff Date</label>
+                    <input 
+                      type="date" 
+                      value={editingRecord.cutoffDate || ''}
+                      onChange={(e) => setEditingRecord({ ...editingRecord, cutoffDate: e.target.value })}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
+                    />
+                  </div>
+                </div>
+                <div className="pt-4 flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="flex-1 px-6 py-4 rounded-2xl border border-zinc-200 text-zinc-600 font-bold hover:bg-zinc-50 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-1 bg-orange-500 text-white px-6 py-4 rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-100 disabled:opacity-50"
+                  >
+                    {submitting ? 'Updating...' : 'Update Record'}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

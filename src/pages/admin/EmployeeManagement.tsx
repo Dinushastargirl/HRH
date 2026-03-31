@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../../firebase';
+import { db, handleFirestoreError, OperationType } from '../../firebase';
 import { 
   collection, query, onSnapshot, doc, deleteDoc, 
   orderBy, setDoc, serverTimestamp, where, updateDoc 
@@ -8,8 +8,9 @@ import {
 import { toast } from 'sonner';
 import { 
   Users, Search, Plus, Trash2, UserPlus, Mail, Briefcase, 
-  XCircle, DollarSign, Calendar as CalendarIcon, Edit2
+  XCircle, DollarSign, Calendar as CalendarIcon, Edit2, Upload
 } from 'lucide-react';
+import Papa from 'papaparse';
 import { UserProfile, UserRole } from '../../types';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -62,7 +63,7 @@ export default function EmployeeManagement() {
       setEmployees(snap.docs.map(d => d.data() as UserProfile));
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching employees:", error);
+      handleFirestoreError(error, OperationType.GET, 'users');
       setLoading(false);
     });
     return () => unsubscribe();
@@ -121,7 +122,7 @@ export default function EmployeeManagement() {
       setIsAddModalOpen(false);
       resetForm();
     } catch (error: any) {
-      toast.error(error.message);
+      handleFirestoreError(error, OperationType.WRITE, 'users');
     } finally {
       setSubmitting(false);
     }
@@ -145,7 +146,7 @@ export default function EmployeeManagement() {
       setIsEditModalOpen(false);
       resetForm();
     } catch (error: any) {
-      toast.error(error.message);
+      handleFirestoreError(error, OperationType.WRITE, 'users');
     } finally {
       setSubmitting(false);
     }
@@ -157,8 +158,87 @@ export default function EmployeeManagement() {
       await deleteDoc(doc(db, 'users', uid));
       toast.success('Employee removed');
     } catch (error: any) {
-      toast.error(error.message);
+      handleFirestoreError(error, OperationType.DELETE, `users/${uid}`);
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const data = results.data as any[];
+        let successCount = 0;
+        let errorCount = 0;
+        let skipCount = 0;
+
+        setSubmitting(true);
+        for (const row of data) {
+          try {
+            const name = row['Employee Name'] || row['name'] || row['Name'];
+            if (!name) continue;
+
+            const branch = row['Branch'] || row['branch'] || '';
+            const startDate = row['Start Date'] || row['startDate'] || '';
+            const salaryA = Number(row['Salary-A'] || row['salary'] || 0);
+            const salaryB = Number(row['Salary-B'] || row['salaryB'] || 0);
+            const dept = row['Department'] || row['department'] || '';
+            
+            const baseUsername = (row['Username'] || row['username'] || name.toLowerCase().replace(/\s+/g, '.')).trim();
+            const email = (row['Email'] || row['email'] || `${baseUsername}@hrpulse.com`).trim();
+            
+            // Check for duplicates in current state
+            const isDuplicate = employees.some(emp => emp.email === email || emp.username === baseUsername);
+            if (isDuplicate) {
+              skipCount++;
+              continue;
+            }
+
+            const mockUid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+            
+            await setDoc(doc(db, 'users', mockUid), {
+              uid: mockUid,
+              username: baseUsername,
+              name,
+              email,
+              department: dept,
+              branch,
+              startDate,
+              role: 'employee',
+              salary: salaryA,
+              salaryB: salaryB,
+              leaveQuotas: {
+                annual: 14,
+                sick: 7,
+                casual: 7,
+                short: 12
+              },
+              usedLeaves: {
+                annual: 0,
+                sick: 0,
+                casual: 0,
+                short: 0
+              },
+              performanceScore: 0,
+              mustResetPassword: true,
+              createdAt: serverTimestamp(),
+            });
+            successCount++;
+          } catch (err) {
+            console.error('Error importing row:', row, err);
+            errorCount++;
+          }
+        }
+        setSubmitting(false);
+        if (successCount > 0) toast.success(`Successfully imported ${successCount} employees`);
+        if (skipCount > 0) toast.info(`Skipped ${skipCount} existing records`);
+        if (errorCount > 0) toast.error(`Failed to import ${errorCount} records`);
+        e.target.value = ''; 
+      }
+    });
   };
 
   const resetForm = () => {
@@ -202,13 +282,29 @@ export default function EmployeeManagement() {
           <h1 className="text-3xl font-black text-zinc-900">Employee Management</h1>
           <p className="text-zinc-500 font-medium">Manage your workforce, roles, and compensation</p>
         </div>
-        <button
-          onClick={() => { resetForm(); setIsAddModalOpen(true); }}
-          className="flex items-center justify-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-100"
-        >
-          <UserPlus size={20} />
-          Add Employee
-        </button>
+        <div className="flex items-center gap-3">
+          <input
+            type="file"
+            id="csv-upload"
+            accept=".csv"
+            className="hidden"
+            onChange={handleFileUpload}
+          />
+          <label
+            htmlFor="csv-upload"
+            className="flex items-center justify-center gap-2 bg-white border border-zinc-200 text-zinc-600 px-6 py-3 rounded-2xl font-bold hover:bg-zinc-50 transition-all cursor-pointer shadow-sm"
+          >
+            <Upload size={20} />
+            Bulk Import
+          </label>
+          <button
+            onClick={() => { resetForm(); setIsAddModalOpen(true); }}
+            className="flex items-center justify-center gap-2 bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-100"
+          >
+            <UserPlus size={20} />
+            Add Employee
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-[2.5rem] border border-zinc-100 shadow-sm overflow-hidden">

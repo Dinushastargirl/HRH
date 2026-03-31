@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
   collection, query, onSnapshot, doc, 
   orderBy, where, getDoc, updateDoc 
@@ -45,7 +45,7 @@ export default function Performance() {
       setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() })) as PerformanceRecord[]);
       setLoading(false);
     }, (error) => {
-      console.error("Error fetching performance records:", error);
+      handleFirestoreError(error, OperationType.GET, 'performance');
       setLoading(false);
     });
     return () => unsubscribe();
@@ -63,7 +63,7 @@ export default function Performance() {
       toast.success('Self-evaluation submitted successfully');
       setIsModalOpen(false);
     } catch (error: any) {
-      toast.error(error.message);
+      handleFirestoreError(error, OperationType.WRITE, 'performance');
     } finally {
       setSubmitting(false);
     }
@@ -92,10 +92,10 @@ export default function Performance() {
             </div>
             <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Current Rating</p>
             <div className="flex items-center gap-2">
-              <p className="text-3xl font-black text-zinc-900">{latestRecord.rating}/5</p>
+              <p className="text-3xl font-black text-zinc-900">{(latestRecord.rating || latestRecord.score / 20).toFixed(1)}/5</p>
               <div className="flex items-center gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} size={12} className={cn(i < latestRecord.rating ? "text-orange-500 fill-orange-500" : "text-zinc-200")} />
+                  <Star key={i} size={12} className={cn(i < (latestRecord.rating || latestRecord.score / 20) ? "text-orange-500 fill-orange-500" : "text-zinc-200")} />
                 ))}
               </div>
             </div>
@@ -147,7 +147,7 @@ export default function Performance() {
                     <div className="text-right">
                       <div className="flex items-center gap-1 justify-end">
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} size={12} className={cn(i < record.rating ? "text-orange-500 fill-orange-500" : "text-zinc-200")} />
+                          <Star key={i} size={12} className={cn(i < (record.rating || record.score / 20) ? "text-orange-500 fill-orange-500" : "text-zinc-200")} />
                         ))}
                       </div>
                       <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">{record.status}</p>
@@ -182,7 +182,7 @@ export default function Performance() {
                       HR Feedback
                     </h4>
                     <p className="text-sm font-medium text-zinc-600 leading-relaxed bg-zinc-50 p-4 rounded-2xl italic">
-                      "{record.hrFeedback}"
+                      "{record.hrFeedback || record.feedback || 'No feedback provided yet.'}"
                     </p>
                   </div>
                 </div>

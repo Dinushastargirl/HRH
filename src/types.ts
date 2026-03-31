@@ -9,6 +9,9 @@ export interface UserProfile {
   role: UserRole;
   branch: string;
   department?: string;
+  phone?: string;
+  photoUrl?: string;
+  status?: 'Available' | 'Busy' | 'On Leave' | 'Remote' | 'Meeting';
   joinDate: string;
   salaryA: number;
   salaryB: number;

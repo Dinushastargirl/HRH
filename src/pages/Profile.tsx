@@ -1,35 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   User, Mail, MapPin, Calendar, 
   Briefcase, Shield, LogOut, Edit3,
-  Phone, Globe, Github, Linkedin, Save, X
+  Phone, Globe, Github, Linkedin, Save, X,
+  Camera, CheckCircle2
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { formatDate } from '../lib/utils';
+import { cn, formatDate } from '../lib/utils';
 import { mockService } from '../mockService';
 import { toast } from 'sonner';
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: '+94 77 123 4567', // Mock phone
+    phone: user?.phone || '+94 77 123 4567',
+    status: user?.status || 'Available',
+    photoUrl: user?.photoUrl || '',
   });
 
   if (!user) return null;
 
+  const handlePhotoClick = () => {
+    if (isEditing) {
+      fileInputRef.current?.click();
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData({ ...formData, photoUrl: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = () => {
-    mockService.saveEmployee({
+    const updatedUser = {
       ...user,
       name: formData.name,
       email: formData.email,
-    });
+      phone: formData.phone,
+      status: formData.status as any,
+      photoUrl: formData.photoUrl,
+    };
+    
+    mockService.saveEmployee(updatedUser);
+    updateUser(updatedUser);
     setIsEditing(false);
     toast.success('Profile updated successfully!');
-    // In a real app, we'd refresh the auth user here
-    window.location.reload(); 
+  };
+
+  const statusColors = {
+    'Available': 'bg-green-500',
+    'Busy': 'bg-red-500',
+    'On Leave': 'bg-amber-500',
+    'Remote': 'bg-blue-500',
+    'Meeting': 'bg-purple-500',
   };
 
   return (
@@ -72,12 +105,44 @@ export default function Profile() {
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm text-center">
             <div className="relative inline-block mb-6">
-              <div className="w-32 h-32 rounded-[2.5rem] bg-zinc-100 flex items-center justify-center text-zinc-400 font-black text-4xl uppercase">
-                {user.name.charAt(0)}
+              <div 
+                onClick={handlePhotoClick}
+                className={cn(
+                  "w-32 h-32 rounded-[2.5rem] bg-zinc-100 flex items-center justify-center text-zinc-400 font-black text-4xl uppercase overflow-hidden border-4 border-white shadow-xl relative group",
+                  isEditing && "cursor-pointer hover:opacity-80 transition-opacity"
+                )}
+              >
+                {formData.photoUrl ? (
+                  <img src={formData.photoUrl} alt={user.name} className="w-full h-full object-cover" />
+                ) : (
+                  user.name.charAt(0)
+                )}
+                {isEditing && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="text-white" size={24} />
+                  </div>
+                )}
               </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                className="hidden" 
+                accept="image/*"
+              />
+              <div className={cn(
+                "absolute bottom-2 right-2 w-6 h-6 rounded-full border-4 border-white shadow-sm",
+                statusColors[formData.status as keyof typeof statusColors] || 'bg-zinc-400'
+              )} />
             </div>
             <h2 className="text-2xl font-black text-zinc-900">{user.name}</h2>
-            <p className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-8">{user.role} • {user.branch}</p>
+            <div className="flex items-center justify-center gap-2 mb-8">
+              <div className={cn(
+                "w-2 h-2 rounded-full",
+                statusColors[formData.status as keyof typeof statusColors] || 'bg-zinc-400'
+              )} />
+              <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">{formData.status}</span>
+            </div>
             
             <div className="space-y-3">
               <button className="w-full py-4 bg-zinc-50 text-zinc-600 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-zinc-100 transition-all">
@@ -149,7 +214,7 @@ export default function Profile() {
                 )}
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Email Address</label>
+                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Email Address (Gmail)</label>
                 {isEditing ? (
                   <input 
                     type="email"
@@ -179,10 +244,28 @@ export default function Profile() {
                 )}
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Employee ID</label>
-                <div className="px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100">
-                  {user.uid}
-                </div>
+                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Status Mode</label>
+                {isEditing ? (
+                  <select 
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="w-full px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100 focus:ring-2 focus:ring-orange-500 outline-none transition-all appearance-none"
+                  >
+                    <option value="Available">Available</option>
+                    <option value="Busy">Busy</option>
+                    <option value="On Leave">On Leave</option>
+                    <option value="Remote">Remote</option>
+                    <option value="Meeting">Meeting</option>
+                  </select>
+                ) : (
+                  <div className="px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100 flex items-center gap-2">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full",
+                      statusColors[formData.status as keyof typeof statusColors] || 'bg-zinc-400'
+                    )} />
+                    {formData.status}
+                  </div>
+                )}
               </div>
             </div>
           </div>

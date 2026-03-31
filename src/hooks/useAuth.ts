@@ -25,16 +25,8 @@ export function useAuth() {
         return () => unsubProfile();
       } else if (demoUser) {
         setUid(demoUser.uid);
-        const unsubProfile = onSnapshot(doc(db, 'users', demoUser.uid), (docSnap) => {
-          if (docSnap.exists()) {
-            setUser(docSnap.data() as UserProfile);
-          } else {
-            // If doc doesn't exist in Firestore but we have it in localStorage, use localStorage as fallback
-            setUser(demoUser);
-          }
-          setLoading(false);
-        });
-        return () => unsubProfile();
+        setUser(demoUser);
+        setLoading(false);
       } else {
         setUid(null);
         setUser(null);

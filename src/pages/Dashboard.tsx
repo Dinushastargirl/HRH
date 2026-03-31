@@ -51,6 +51,45 @@ export default function Dashboard() {
   useEffect(() => {
     if (!uid) return;
 
+    // Mock data for demo users if Firestore fails or is not needed
+    const isDemo = !!localStorage.getItem('hr_pulse_demo_user');
+    
+    if (isDemo) {
+      setRequests([
+        {
+          id: 'demo-1',
+          userId: uid,
+          userName: user?.name || 'Demo User',
+          userRole: user?.role || 'employee',
+          leaveType: 'Annual',
+          reason: 'Vacation',
+          startDate: Timestamp.fromDate(new Date(Date.now() - 86400000 * 5)),
+          endDate: Timestamp.fromDate(new Date(Date.now() - 86400000 * 2)),
+          status: 'Approved',
+          createdAt: Timestamp.now()
+        }
+      ] as LeaveRequest[]);
+      
+      setAttendance([
+        {
+          id: 'att-1',
+          userId: uid,
+          date: new Date().toISOString().split('T')[0],
+          checkIn: Timestamp.fromDate(new Date(new Date().setHours(9, 0))),
+          isLate: false,
+          isEarlyOut: false
+        }
+      ] as AttendanceRecord[]);
+      
+      setTasks([
+        { id: 'task-1', userId: uid, title: 'Complete onboarding', completed: true, createdAt: Timestamp.now() },
+        { id: 'task-2', userId: uid, title: 'Review payroll', completed: false, createdAt: Timestamp.now() }
+      ] as Task[]);
+      
+      setLoading(false);
+      // We still set up listeners but they might fail silently or be overridden by mock data
+    }
+
     // Leave Requests
     const qLeaves = query(
       collection(db, 'leaveRequests'),

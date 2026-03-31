@@ -37,6 +37,42 @@ export default function AdminDashboard() {
       return;
     }
 
+    // Mock data for demo users if Firestore fails or is not needed
+    const isDemo = !!localStorage.getItem('hr_pulse_demo_user');
+    
+    if (isDemo) {
+      setRequests([
+        {
+          id: 'demo-1',
+          userId: 'demo-uid',
+          userName: 'John Doe',
+          userRole: 'employee',
+          leaveType: 'Annual',
+          reason: 'Vacation',
+          startDate: Timestamp.fromDate(new Date(Date.now() - 86400000 * 5)),
+          endDate: Timestamp.fromDate(new Date(Date.now() - 86400000 * 2)),
+          status: 'Pending',
+          createdAt: Timestamp.now()
+        }
+      ] as LeaveRequest[]);
+      
+      setEmployees([
+        { uid: 'demo-uid', name: 'John Doe', email: 'john@example.com', role: 'employee', department: 'Engineering', salary: 5000, leaveQuotas: { annual: 20, sick: 10, casual: 5, short: 2 }, usedLeaves: { annual: 5, sick: 2, casual: 1, short: 0 }, performanceScore: 85, createdAt: Timestamp.now() },
+        { uid: 'demo-uid-2', name: 'Jane Smith', email: 'jane@example.com', role: 'hr', department: 'HR', salary: 6000, leaveQuotas: { annual: 20, sick: 10, casual: 5, short: 2 }, usedLeaves: { annual: 2, sick: 1, casual: 0, short: 0 }, performanceScore: 92, createdAt: Timestamp.now() }
+      ] as UserProfile[]);
+      
+      setPayroll([
+        { id: 'pay-1', userId: 'demo-uid', userName: 'John Doe', month: new Date().getMonth() + 1, year: new Date().getFullYear(), netSalary: 5000, status: 'Paid', createdAt: Timestamp.now(), branch: 'Main', salaryA: 3000, salaryB: 2000, epf: 500, advances: 0, coverDedication: 0, intensive: 500, travelling: 0 }
+      ] as PayrollRecord[]);
+      
+      setPerformance([
+        { id: 'perf-1', userId: 'demo-uid', userName: 'John Doe', evaluatorId: 'demo-uid-2', evaluatorName: 'Jane Smith', score: 85, feedback: 'Great performance', goals: ['Improve coding speed'], createdAt: Timestamp.now() }
+      ] as PerformanceRecord[]);
+      
+      setLoading(false);
+      // We still set up listeners but they might fail silently or be overridden by mock data
+    }
+
     const unsubRequests = onSnapshot(query(collection(db, 'leaveRequests'), orderBy('createdAt', 'desc')), (snap) => {
       setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })) as LeaveRequest[]);
     });

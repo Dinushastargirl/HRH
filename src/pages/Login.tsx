@@ -28,35 +28,26 @@ export default function Login() {
       
       if (isDemo) {
         const mockUid = `demo_${username}`;
-        const docRef = doc(db, 'users', mockUid);
-        const docSnap = await getDoc(docRef);
+        const defaultQuotas = { annual: 14, sick: 7, casual: 7, short: 4 };
+        const defaultUsed = { annual: 0, sick: 0, casual: 0, short: 0 };
+        let role: UserRole = username as any;
+        let name = username === 'owner' ? 'Company Owner' : 
+                   username === 'hr' ? 'HR Manager' : 
+                   username === 'super' ? 'Super Admin' : 'Demo Employee';
         
-        let userData;
-        if (docSnap.exists()) {
-          userData = docSnap.data();
-        } else {
-          const defaultQuotas = { annual: 14, sick: 7, casual: 7, short: 4 };
-          const defaultUsed = { annual: 0, sick: 0, casual: 0, short: 0 };
-          let role: UserRole = username as any;
-          let name = username === 'owner' ? 'Company Owner' : 
-                     username === 'hr' ? 'HR Manager' : 
-                     username === 'super' ? 'Super Admin' : 'Demo Employee';
-          
-          userData = {
-            uid: mockUid,
-            username: username,
-            name: name,
-            email: `${username}@demo.com`,
-            role: role,
-            salary: role === 'owner' ? 0 : 5000,
-            leaveQuotas: defaultQuotas,
-            usedLeaves: defaultUsed,
-            performanceScore: 100,
-            mustResetPassword: false,
-            createdAt: new Date()
-          };
-          await setDoc(docRef, userData);
-        }
+        const userData = {
+          uid: mockUid,
+          username: username,
+          name: name,
+          email: `${username}@demo.com`,
+          role: role,
+          salary: role === 'owner' ? 0 : 5000,
+          leaveQuotas: defaultQuotas,
+          usedLeaves: defaultUsed,
+          performanceScore: 100,
+          mustResetPassword: false,
+          createdAt: new Date()
+        };
         
         localStorage.setItem('hr_pulse_demo_user', JSON.stringify(userData));
         toast.success(`Demo Mode: Welcome, ${userData.name}!`);
@@ -126,6 +117,46 @@ export default function Login() {
     }
   };
 
+  const seedDemoData = async () => {
+    setLoading(true);
+    try {
+      const demoUsers = [
+        { username: 'super', password: '1234', role: 'super', name: 'Super Admin' },
+        { username: 'owner', password: '4321', role: 'owner', name: 'Company Owner' },
+        { username: 'hr', password: '4321', role: 'hr', name: 'HR Manager' },
+        { username: 'employee', password: '4321', role: 'employee', name: 'Demo Employee' },
+      ];
+
+      const defaultQuotas = { annual: 14, sick: 7, casual: 7, short: 4 };
+      const defaultUsed = { annual: 0, sick: 0, casual: 0, short: 0 };
+
+      for (const demo of demoUsers) {
+        const mockUid = `demo_${demo.username}`;
+        const docRef = doc(db, 'users', mockUid);
+        const userData = {
+          uid: mockUid,
+          username: demo.username,
+          name: demo.name,
+          email: `${demo.username}@demo.com`,
+          role: demo.role,
+          salary: demo.role === 'owner' ? 0 : 5000,
+          leaveQuotas: defaultQuotas,
+          usedLeaves: defaultUsed,
+          performanceScore: 100,
+          mustResetPassword: false,
+          createdAt: new Date()
+        };
+        await setDoc(docRef, userData);
+      }
+      toast.success('Demo data initialized successfully!');
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to initialize demo data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
       <motion.div 
@@ -180,6 +211,16 @@ export default function Login() {
               Sign In
             </button>
           </form>
+
+          <div className="mt-6">
+            <button
+              onClick={seedDemoData}
+              disabled={loading}
+              className="w-full py-3 px-4 rounded-xl border border-zinc-200 text-zinc-500 text-sm font-bold hover:bg-zinc-50 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              Initialize Demo Data
+            </button>
+          </div>
 
           <div className="mt-10 pt-8 border-t border-zinc-50 text-center">
             <p className="text-xs text-zinc-400 font-medium">

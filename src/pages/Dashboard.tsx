@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../firebase';
-import { 
-  collection, query, where, onSnapshot, addDoc, serverTimestamp, 
-  orderBy, Timestamp, limit, doc, getDoc, updateDoc 
-} from 'firebase/firestore';
-import { toast } from 'sonner';
 import { 
   Calendar, Clock, CheckCircle2, XCircle, Plus, 
   ArrowUpRight, ArrowDownRight, Timer, ListTodo,
   TrendingUp, Briefcase, UserCheck, ShieldCheck
 } from 'lucide-react';
-import { LeaveRequest, UserProfile, AttendanceRecord, Task, LeaveType } from '../types';
+import { LeaveRequest, AttendanceRecord, Task, LeaveType } from '../types';
 import { cn, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -19,10 +13,11 @@ import {
 } from 'recharts';
 
 import { useAuth } from '../hooks/useAuth';
-import { handleFirestoreError, OperationType } from '../firebase';
+import { mockService } from '../mockService';
+import { toast } from 'sonner';
 
 export default function Dashboard() {
-  const { user, uid, loading: authLoading } = useAuth();
+  const { user, uid } = useAuth();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -49,165 +44,79 @@ export default function Dashboard() {
     return { text: 'Good Evening', icon: '🌙' };
   };
 
-  useEffect(() => {
+  const loadData = () => {
     if (!uid) return;
+    setRequests(mockService.getLeaves(uid));
+    setAttendance(mockService.getAttendance(uid));
+    setTasks(mockService.getTasks(uid));
+    setLoading(false);
+  };
 
-    // Mock data for demo users if Firestore fails or is not needed
-    const isDemo = !!localStorage.getItem('hr_pulse_demo_user');
-    
-    if (isDemo) {
-      setRequests([
-        {
-          id: 'demo-1',
-          userId: uid,
-          userName: user?.name || 'Demo User',
-          userRole: user?.role || 'employee',
-          leaveType: 'Annual',
-          reason: 'Vacation',
-          startDate: Timestamp.fromDate(new Date(Date.now() - 86400000 * 5)),
-          endDate: Timestamp.fromDate(new Date(Date.now() - 86400000 * 2)),
-          status: 'Approved',
-          createdAt: Timestamp.now()
-        }
-      ] as LeaveRequest[]);
-      
-      setAttendance([
-        {
-          id: 'att-1',
-          userId: uid,
-          date: new Date().toISOString().split('T')[0],
-          checkIn: Timestamp.fromDate(new Date(new Date().setHours(9, 0))),
-          isLate: false,
-          isEarlyOut: false
-        }
-      ] as AttendanceRecord[]);
-      
-      setTasks([
-        { id: 'task-1', userId: uid, title: 'Complete onboarding', completed: true, createdAt: Timestamp.now() },
-        { id: 'task-2', userId: uid, title: 'Review payroll', completed: false, createdAt: Timestamp.now() }
-      ] as Task[]);
-      
-      setLoading(false);
-      return; // Stop here for demo users
-    }
+  const todayStr = currentTime.toISOString().split('T')[0];
+  const todayRecord = attendance.find(r => r.date === todayStr);
+  const isCheckedIn = !!todayRecord;
+  const isCheckedOut = !!todayRecord?.checkOut;
 
-    // Leave Requests
-    const qLeaves = query(
-      collection(db, 'leaveRequests'),
-      where('userId', '==', uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubLeaves = onSnapshot(qLeaves, (snap) => {
-      setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() })) as LeaveRequest[]);
-    }, (error) => {
-      console.error("Leave Requests Error:", error);
-      if (isDemo) setLoading(false);
-    });
-
-    // Attendance
-    const qAtt = query(
-      collection(db, 'attendance'),
-      where('userId', '==', uid),
-      orderBy('date', 'desc'),
-      limit(7)
-    );
-    const unsubAtt = onSnapshot(qAtt, (snap) => {
-      setAttendance(snap.docs.map(d => ({ id: d.id, ...d.data() })) as AttendanceRecord[]);
-    }, (error) => {
-      console.error("Attendance Error:", error);
-    });
-
-    // Tasks
-    const qTasks = query(
-      collection(db, 'tasks'),
-      where('userId', '==', uid),
-      orderBy('createdAt', 'desc'),
-      limit(5)
-    );
-    const unsubTasks = onSnapshot(qTasks, (snap) => {
-      setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Task[]);
-      setLoading(false);
-    }, (error) => {
-      console.error("Tasks Error:", error);
-      setLoading(false);
-    });
-
-    return () => {
-      unsubLeaves();
-      unsubAtt();
-      unsubTasks();
-    };
+  useEffect(() => {
+    loadData();
   }, [uid]);
 
-  const handleCheckIn = async () => {
+  const handleCheckIn = () => {
     if (!uid) return;
     const todayStr = currentTime.toISOString().split('T')[0];
     const hour = currentTime.getHours();
-    const isLate = hour >= 9; // Late after 9:00 AM
+    const isLate = hour >= 9;
 
-    try {
-      await addDoc(collection(db, 'attendance'), {
-        userId: uid,
-        date: todayStr,
-        checkIn: serverTimestamp(),
-        isLate,
-        isEarlyOut: false,
-      });
-      toast.success('Checked in successfully!');
-    } catch (e: any) {
-      handleFirestoreError(e, OperationType.WRITE, 'attendance');
-    }
+    mockService.saveAttendance({
+      userId: uid,
+      date: todayStr,
+      checkIn: currentTime.toISOString(),
+      isLate,
+      isEarlyOut: false,
+    });
+    toast.success('Checked in successfully!');
+    loadData();
   };
 
-  const handleCheckOut = async () => {
+  const handleCheckOut = () => {
     if (!todayRecord?.id) return;
     const hour = currentTime.getHours();
-    const isEarlyOut = hour < 17; // Early out before 5:00 PM
+    const isEarlyOut = hour < 17;
 
-    try {
-      await updateDoc(doc(db, 'attendance', todayRecord.id), {
-        checkOut: serverTimestamp(),
-        isEarlyOut,
-      });
-      toast.success('Checked out successfully!');
-    } catch (e: any) {
-      handleFirestoreError(e, OperationType.WRITE, `attendance/${todayRecord.id}`);
-    }
+    mockService.updateAttendance(todayRecord.id, {
+      checkOut: currentTime.toISOString(),
+      isEarlyOut,
+    });
+    toast.success('Checked out successfully!');
+    loadData();
   };
 
-  const toggleTask = async (id: string, completed: boolean) => {
-    try {
-      await updateDoc(doc(db, 'tasks', id), { completed: !completed });
-    } catch (e: any) {
-      handleFirestoreError(e, OperationType.WRITE, `tasks/${id}`);
-    }
+  const toggleTask = (id: string) => {
+    mockService.toggleTask(id);
+    loadData();
   };
 
-  const addTask = async (e: React.FormEvent<HTMLFormElement>) => {
+  const addTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const title = (form.elements.namedItem('taskTitle') as HTMLInputElement).value;
     if (!title || !uid) return;
 
-    try {
-      await addDoc(collection(db, 'tasks'), {
-        userId: uid,
-        title,
-        completed: false,
-        createdAt: serverTimestamp(),
-      });
-      form.reset();
-      toast.success('Task added');
-    } catch (e: any) {
-      handleFirestoreError(e, OperationType.WRITE, 'tasks');
-    }
+    mockService.saveTask({
+      userId: uid,
+      title,
+      completed: false,
+      createdAt: new Date().toISOString(),
+    });
+    form.reset();
+    toast.success('Task added');
+    loadData();
   };
 
-  const handleSubmitLeave = async (e: React.FormEvent) => {
+  const handleSubmitLeave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!uid || !user) return;
     
-    // Check balance
     const typeKey = leaveType.toLowerCase() as keyof typeof user.leaveQuotas;
     const remaining = user.leaveQuotas[typeKey] - user.usedLeaves[typeKey];
     
@@ -222,32 +131,29 @@ export default function Dashboard() {
     }
 
     setSubmitting(true);
-    try {
-      await addDoc(collection(db, 'leaveRequests'), {
-        userId: uid,
-        userName: user.name,
-        userRole: user.role,
-        leaveType,
-        reason,
-        startDate: Timestamp.fromDate(start),
-        endDate: Timestamp.fromDate(end),
-        status: 'Pending',
-        createdAt: serverTimestamp(),
-      });
-      toast.success('Leave request submitted!');
-      setIsModalOpen(false);
-      setReason('');
-      setStartDate('');
-      setEndDate('');
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.WRITE, 'leaveRequests');
-    } finally {
-      setSubmitting(false);
-    }
+    mockService.saveLeave({
+      userId: uid,
+      userName: user.name,
+      userRole: user.role,
+      leaveType,
+      reason,
+      startDate: startDate,
+      endDate: endDate,
+      status: 'Pending',
+      createdAt: new Date().toISOString(),
+    });
+    
+    toast.success('Leave request submitted!');
+    setIsModalOpen(false);
+    setReason('');
+    setStartDate('');
+    setEndDate('');
+    setSubmitting(false);
+    loadData();
   };
 
   const leaveData = user ? [
-    { name: 'Annual', value: user.leaveQuotas.annual - user.usedLeaves.annual, color: '#ff8c00' },
+    { name: 'Annual', value: user.leaveQuotas.annual - user.usedLeaves.annual, color: '#f97316' },
     { name: 'Sick', value: user.leaveQuotas.sick - user.usedLeaves.sick, color: '#ef4444' },
     { name: 'Casual', value: user.leaveQuotas.casual - user.usedLeaves.casual, color: '#3b82f6' },
     { name: 'Short', value: user.leaveQuotas.short - user.usedLeaves.short, color: '#10b981' },
@@ -265,17 +171,13 @@ export default function Dashboard() {
     const day = new Date(r.date).toLocaleDateString([], { weekday: 'short' });
     const data = attendanceData.find(d => d.day === day);
     if (data && r.checkIn && r.checkOut) {
-      const diff = r.checkOut.toDate().getTime() - r.checkIn.toDate().getTime();
+      const diff = new Date(r.checkOut).getTime() - new Date(r.checkIn).getTime();
       data.hours = Math.round((diff / (1000 * 60 * 60)) * 10) / 10;
     }
   });
 
   if (loading) return <div className="p-8 text-center text-zinc-400">Loading your workspace...</div>;
 
-  const todayStr = currentTime.toISOString().split('T')[0];
-  const todayRecord = attendance.find(r => r.date === todayStr);
-  const isCheckedIn = !!todayRecord;
-  const isCheckedOut = !!todayRecord?.checkOut;
   const greeting = getGreeting();
 
   return (
@@ -289,7 +191,7 @@ export default function Dashboard() {
                 <span className="text-4xl">{greeting.icon}</span>
                 <div>
                   <h1 className="text-3xl font-black">{greeting.text}, {user?.name.split(' ')[0]}!</h1>
-                  <p className="text-orange-100 font-bold">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} • {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                  <p className="text-orange-100 font-bold">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
                 </div>
               </div>
               
@@ -339,15 +241,13 @@ export default function Dashboard() {
                       <ShieldCheck size={20} />
                       {user.role.toUpperCase()} Access
                     </div>
-                    {(user.role === 'hr' || user.role === 'super') && (
-                      <button 
-                        onClick={() => setIsModalOpen(true)}
-                        className="bg-orange-400/30 backdrop-blur-md text-white border border-white/30 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-orange-400/40 transition-all"
-                      >
-                        <Plus size={20} />
-                        Request Personal Leave
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => setIsModalOpen(true)}
+                      className="bg-orange-400/30 backdrop-blur-md text-white border border-white/30 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-orange-400/40 transition-all"
+                    >
+                      <Plus size={20} />
+                      Request Personal Leave
+                    </button>
                   </div>
                 )}
               </div>
@@ -407,12 +307,12 @@ export default function Dashboard() {
                     <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#a1a1aa' }} />
                     <YAxis hide />
                     <Tooltip cursor={{ fill: '#fff7ed' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                    <Bar dataKey="hours" fill="#ff8c00" radius={[6, 6, 0, 0]} barSize={24} />
+                    <Bar dataKey="hours" fill="#f97316" radius={[6, 6, 0, 0]} barSize={24} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
               <p className="text-xs text-center text-zinc-400 mt-4 font-medium">
-                {attendance.length > 0 ? `Last check-in: ${formatDate(attendance[0].checkIn.toDate())}` : 'No attendance records yet'}
+                {attendance.length > 0 ? `Last check-in: ${formatDate(attendance[attendance.length-1].checkIn)}` : 'No attendance records yet'}
               </p>
             </div>
           </div>
@@ -426,8 +326,8 @@ export default function Dashboard() {
               <p className="text-2xl font-black text-orange-500">{user?.performanceScore}%</p>
             </div>
             <div className="bg-white p-5 rounded-3xl border border-zinc-100 shadow-sm">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Salary</p>
-              <p className="text-2xl font-black text-zinc-900">${user?.salary.toLocaleString()}</p>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Net Pay</p>
+              <p className="text-2xl font-black text-zinc-900">LKR {user?.net.toLocaleString()}</p>
             </div>
           </div>
 
@@ -452,7 +352,7 @@ export default function Dashboard() {
                 </button>
               </div>
             </form>
-            <div className="flex-1 space-y-3">
+            <div className="flex-1 space-y-3 overflow-y-auto max-h-[300px]">
               {tasks.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-sm text-zinc-400 font-medium">No tasks for today</p>
@@ -461,7 +361,7 @@ export default function Dashboard() {
                 tasks.map(task => (
                   <div 
                     key={task.id} 
-                    onClick={() => toggleTask(task.id!, task.completed)}
+                    onClick={() => toggleTask(task.id!)}
                     className={cn(
                       "group flex items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer",
                       task.completed ? "bg-zinc-50 border-zinc-100 opacity-60" : "bg-white border-zinc-100 hover:border-orange-200"
@@ -501,35 +401,41 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-50">
-              {requests.slice(0, 5).map((request) => (
-                <tr key={request.id} className="hover:bg-zinc-50/30 transition-colors">
-                  <td className="px-8 py-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600">
-                        <Briefcase size={16} />
-                      </div>
-                      <span className="font-bold text-zinc-900">{request.leaveType}</span>
-                    </div>
-                  </td>
-                  <td className="px-8 py-5">
-                    <p className="text-sm font-bold text-zinc-700">{formatDate(request.startDate.toDate())}</p>
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">To {formatDate(request.endDate.toDate())}</p>
-                  </td>
-                  <td className="px-8 py-5">
-                    <p className="text-sm text-zinc-500 max-w-xs truncate font-medium">{request.reason}</p>
-                  </td>
-                  <td className="px-8 py-5">
-                    <div className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                      request.status === 'Approved' ? "bg-green-50 text-green-700 border-green-100" :
-                      request.status === 'Rejected' ? "bg-red-50 text-red-700 border-red-100" :
-                      "bg-amber-50 text-amber-700 border-amber-100"
-                    )}>
-                      {request.status}
-                    </div>
-                  </td>
+              {requests.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-8 py-10 text-center text-zinc-400 font-medium">No leave requests found</td>
                 </tr>
-              ))}
+              ) : (
+                requests.slice(0, 5).map((request) => (
+                  <tr key={request.id} className="hover:bg-zinc-50/30 transition-colors">
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600">
+                          <Briefcase size={16} />
+                        </div>
+                        <span className="font-bold text-zinc-900">{request.leaveType}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5">
+                      <p className="text-sm font-bold text-zinc-700">{formatDate(request.startDate)}</p>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">To {formatDate(request.endDate)}</p>
+                    </td>
+                    <td className="px-8 py-5">
+                      <p className="text-sm text-zinc-500 max-w-xs truncate font-medium">{request.reason}</p>
+                    </td>
+                    <td className="px-8 py-5">
+                      <div className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
+                        request.status === 'Approved' ? "bg-green-50 text-green-700 border-green-100" :
+                        request.status === 'Rejected' ? "bg-red-50 text-red-700 border-red-100" :
+                        "bg-amber-50 text-amber-700 border-amber-100"
+                      )}>
+                        {request.status}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

@@ -1,291 +1,166 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
-  collection, query, onSnapshot, doc, 
-  orderBy, where, getDoc, updateDoc 
-} from 'firebase/firestore';
-import { toast } from 'sonner';
-import { 
-  BarChart3, Star, Target, MessageSquare, 
-  TrendingUp, CheckCircle, Clock, Edit2, XCircle
+  TrendingUp, Award, Target, Zap, 
+  Star, AlertCircle, CheckCircle2, BarChart3
 } from 'lucide-react';
 import { PerformanceRecord, UserProfile } from '../types';
-import { cn, formatDate } from '../lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
-
+import { mockService } from '../mockService';
 import { useAuth } from '../hooks/useAuth';
+import { cn } from '../lib/utils';
+import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 
 export default function Performance() {
-  const { user, uid, loading: authLoading } = useAuth();
-  const [records, setRecords] = useState<PerformanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<PerformanceRecord | null>(null);
-  const [selfEvaluation, setSelfEvaluation] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const { user } = useAuth();
+  const [employees, setEmployees] = useState<UserProfile[]>([]);
+  const [selectedEmp, setSelectedEmp] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    if (!uid) return;
-
-    const isDemo = !!localStorage.getItem('hr_pulse_demo_user');
-    if (isDemo) {
-      setRecords([
-        { id: 'perf-1', userId: uid, userName: 'Demo User', evaluatorId: 'hr-uid', evaluatorName: 'HR Manager', score: 85, rating: 4, feedback: 'Good progress this quarter.', hrFeedback: 'Consistently meeting expectations.', goals: ['Master React', 'Improve documentation'], status: 'Completed', createdAt: { toDate: () => new Date() } as any }
-      ]);
-      setLoading(false);
-      return;
+    const emps = mockService.getEmployees();
+    setEmployees(emps);
+    if (!selectedEmp && emps.length > 0) {
+      setSelectedEmp(user?.role === 'employee' ? emps.find(e => e.uid === user.uid) || emps[0] : emps[0]);
     }
+  }, [user]);
 
-    const q = query(
-      collection(db, 'performance'), 
-      where('userId', '==', uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() })) as PerformanceRecord[]);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'performance');
-      setLoading(false);
-    });
-    return () => unsubscribe();
-  }, [uid]);
+  const performanceData = [
+    { subject: 'Attendance', A: selectedEmp?.performanceScore || 80, fullMark: 100 },
+    { subject: 'Efficiency', A: (selectedEmp?.performanceScore || 80) - 5, fullMark: 100 },
+    { subject: 'Quality', A: (selectedEmp?.performanceScore || 80) + 10, fullMark: 100 },
+    { subject: 'Teamwork', A: 85, fullMark: 100 },
+    { subject: 'Reliability', A: 90, fullMark: 100 },
+  ];
 
-  const handleSelfEvaluation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedRecord?.id) return;
-    setSubmitting(true);
-    try {
-      await updateDoc(doc(db, 'performance', selectedRecord.id), {
-        selfEvaluation,
-        status: 'Self-Evaluated'
-      });
-      toast.success('Self-evaluation submitted successfully');
-      setIsModalOpen(false);
-    } catch (error: any) {
-      handleFirestoreError(error, OperationType.WRITE, 'performance');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const openModal = (record: PerformanceRecord) => {
-    setSelectedRecord(record);
-    setSelfEvaluation(record.selfEvaluation || '');
-    setIsModalOpen(true);
-  };
-
-  const latestRecord = records[0];
+  const historyData = [
+    { month: 'Jan', score: 75 },
+    { month: 'Feb', score: 82 },
+    { month: 'Mar', score: 78 },
+    { month: 'Apr', score: 85 },
+    { month: 'May', score: 88 },
+    { month: 'Jun', score: selectedEmp?.performanceScore || 80 },
+  ];
 
   return (
     <div className="space-y-8 pb-12">
-      <div>
-        <h1 className="text-3xl font-black text-zinc-900">My Performance</h1>
-        <p className="text-zinc-500 font-medium">Track your growth, goals, and feedback</p>
-      </div>
-
-      {latestRecord && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm">
-            <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center mb-6">
-              <Star className="text-orange-600" size={24} />
-            </div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Current Rating</p>
-            <div className="flex items-center gap-2">
-              <p className="text-3xl font-black text-zinc-900">{(latestRecord.rating || latestRecord.score / 20).toFixed(1)}/5</p>
-              <div className="flex items-center gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} size={12} className={cn(i < (latestRecord.rating || latestRecord.score / 20) ? "text-orange-500 fill-orange-500" : "text-zinc-200")} />
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center mb-6">
-              <Target className="text-blue-600" size={24} />
-            </div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Active Goals</p>
-            <p className="text-3xl font-black text-zinc-900">{latestRecord.goals.length}</p>
-            <p className="text-xs text-zinc-500 font-medium mt-2">Set by HR/Owner</p>
-          </div>
-          <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm">
-            <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center mb-6">
-              <TrendingUp className="text-green-600" size={24} />
-            </div>
-            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Status</p>
-            <p className="text-3xl font-black text-zinc-900">{latestRecord.status}</p>
-            <p className="text-xs text-zinc-500 font-medium mt-2">Latest evaluation</p>
-          </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-zinc-900">Performance</h1>
+          <p className="text-zinc-500 font-medium">Analyze employee growth and metrics</p>
         </div>
-      )}
+        {user?.role !== 'employee' && (
+          <select 
+            value={selectedEmp?.uid}
+            onChange={(e) => setSelectedEmp(employees.find(emp => emp.uid === e.target.value) || null)}
+            className="px-4 py-3 bg-white border border-zinc-200 rounded-2xl text-sm font-bold text-zinc-600 outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            {employees.map(e => <option key={e.uid} value={e.uid}>{e.name}</option>)}
+          </select>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
-          <h3 className="text-xl font-black text-zinc-900 flex items-center gap-2">
-            <Clock size={24} className="text-orange-500" />
-            Evaluation History
-          </h3>
-          <div className="space-y-4">
-            {records.map((record) => (
-              <motion.div 
-                key={record.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm hover:shadow-md transition-all group"
-              >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-zinc-50 flex items-center justify-center text-zinc-400">
-                      <BarChart3 size={24} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-zinc-900">Performance Review</p>
-                      <p className="text-xs text-zinc-500 font-medium">{formatDate(record.createdAt?.toDate() || new Date())}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <div className="flex items-center gap-1 justify-end">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} size={12} className={cn(i < (record.rating || record.score / 20) ? "text-orange-500 fill-orange-500" : "text-zinc-200")} />
-                        ))}
-                      </div>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">{record.status}</p>
-                    </div>
-                    <button 
-                      onClick={() => openModal(record)}
-                      className="p-3 bg-orange-50 text-orange-600 rounded-xl hover:bg-orange-100 transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                      <Target size={14} className="text-orange-500" />
-                      Key Goals
-                    </h4>
-                    <ul className="space-y-2">
-                      {record.goals.map((goal, i) => (
-                        <li key={i} className="flex items-center gap-3 text-sm font-medium text-zinc-700">
-                          <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
-                          {goal}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div className="space-y-4">
-                    <h4 className="text-xs font-black text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                      <MessageSquare size={14} className="text-blue-500" />
-                      HR Feedback
-                    </h4>
-                    <p className="text-sm font-medium text-zinc-600 leading-relaxed bg-zinc-50 p-4 rounded-2xl italic">
-                      "{record.hrFeedback || record.feedback || 'No feedback provided yet.'}"
-                    </p>
-                  </div>
-                </div>
-
-                {record.selfEvaluation && (
-                  <div className="mt-8 pt-8 border-t border-zinc-50">
-                    <h4 className="text-xs font-black text-zinc-400 uppercase tracking-widest mb-3">Your Self-Evaluation</h4>
-                    <p className="text-sm font-medium text-zinc-600 leading-relaxed">
-                      {record.selfEvaluation}
-                    </p>
-                  </div>
-                )}
-              </motion.div>
-            ))}
-            {records.length === 0 && (
-              <div className="bg-white p-12 rounded-[2.5rem] border border-zinc-100 text-center">
-                <BarChart3 size={48} className="text-zinc-200 mx-auto mb-4" />
-                <p className="text-zinc-500 font-medium">No performance reviews yet</p>
+        {/* Profile Card */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm text-center">
+            <div className="w-24 h-24 rounded-3xl bg-zinc-100 mx-auto mb-4 flex items-center justify-center text-zinc-400 font-black text-3xl">
+              {selectedEmp?.name.charAt(0)}
+            </div>
+            <h2 className="text-xl font-black text-zinc-900">{selectedEmp?.name}</h2>
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-6">{selectedEmp?.role} • {selectedEmp?.branch}</p>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-zinc-50 p-4 rounded-2xl">
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Score</p>
+                <p className="text-xl font-black text-zinc-900">{selectedEmp?.performanceScore}%</p>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <h3 className="text-xl font-black text-zinc-900 flex items-center gap-2">
-            <TrendingUp size={24} className="text-orange-500" />
-            Growth Tips
-          </h3>
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-8 rounded-[2.5rem] text-white shadow-xl shadow-orange-100">
-            <h4 className="text-lg font-bold mb-4">Keep it up!</h4>
-            <p className="text-sm text-orange-50 leading-relaxed mb-6">
-              Your performance score is in the top 15% of the company. Focus on your "Leadership" goal this quarter to prepare for senior roles.
-            </p>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-                <CheckCircle size={18} />
-                <span className="text-xs font-bold">Complete 2 more tasks today</span>
-              </div>
-              <div className="flex items-center gap-3 bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-                <CheckCircle size={18} />
-                <span className="text-xs font-bold">Update your monthly goals</span>
+              <div className="bg-zinc-50 p-4 rounded-2xl">
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Rank</p>
+                <p className="text-xl font-black text-zinc-900">#4</p>
               </div>
             </div>
           </div>
+
+          <div className="bg-zinc-900 p-8 rounded-[2.5rem] text-white">
+            <div className="flex items-center gap-3 mb-6">
+              <Award className="text-orange-400" size={24} />
+              <h3 className="font-black text-lg">Key Achievements</h3>
+            </div>
+            <ul className="space-y-4">
+              <li className="flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-green-400 mt-0.5 shrink-0" />
+                <p className="text-sm font-medium text-zinc-300">100% Attendance in May</p>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-green-400 mt-0.5 shrink-0" />
+                <p className="text-sm font-medium text-zinc-300">Exceeded sales target by 15%</p>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle2 size={18} className="text-green-400 mt-0.5 shrink-0" />
+                <p className="text-sm font-medium text-zinc-300">Employee of the Month (March)</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Charts */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm">
+              <h3 className="font-black text-zinc-900 mb-6 flex items-center gap-2">
+                <Target size={20} className="text-orange-500" />
+                Skill Distribution
+              </h3>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart cx="50%" cy="50%" outerRadius="80%" data={performanceData}>
+                    <PolarGrid stroke="#f4f4f5" />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: '#a1a1aa', fontSize: 10, fontWeight: 700 }} />
+                    <Radar name="Score" dataKey="A" stroke="#18181b" fill="#18181b" fillOpacity={0.1} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm">
+              <h3 className="font-black text-zinc-900 mb-6 flex items-center gap-2">
+                <TrendingUp size={20} className="text-green-500" />
+                Score History
+              </h3>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={historyData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f4f4f5" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#a1a1aa', fontSize: 10, fontWeight: 700 }} />
+                    <YAxis hide />
+                    <Tooltip 
+                      cursor={{ fill: '#f8fafc' }}
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Bar dataKey="score" fill="#18181b" radius={[10, 10, 0, 0]} barSize={30} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Efficiency', val: '92%', icon: Zap, color: 'text-yellow-500', bg: 'bg-yellow-50' },
+              { label: 'Quality', val: '88%', icon: Star, color: 'text-orange-500', bg: 'bg-orange-50' },
+              { label: 'Attendance', val: '98%', icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-50' },
+              { label: 'Reliability', val: '95%', icon: BarChart3, color: 'text-blue-500', bg: 'bg-blue-50' },
+            ].map((m, i) => (
+              <div key={i} className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
+                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-3", m.bg, m.color)}>
+                  <m.icon size={20} />
+                </div>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{m.label}</p>
+                <p className="text-xl font-black text-zinc-900">{m.val}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-
-      {/* Self Evaluation Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl border border-zinc-100 overflow-hidden"
-            >
-              <div className="p-8 border-b border-zinc-50 flex items-center justify-between">
-                <h2 className="text-2xl font-black text-zinc-900">Self Evaluation</h2>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 rounded-xl transition-all">
-                  <XCircle size={24} />
-                </button>
-              </div>
-              <form onSubmit={handleSelfEvaluation} className="p-8 space-y-6">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Your Thoughts</label>
-                  <textarea
-                    required
-                    value={selfEvaluation}
-                    onChange={(e) => setSelfEvaluation(e.target.value)}
-                    rows={6}
-                    className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
-                    placeholder="How do you feel about your performance? What were your key achievements and challenges?"
-                  />
-                </div>
-                <div className="pt-4 flex gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="flex-1 px-6 py-4 rounded-2xl border border-zinc-200 text-zinc-600 font-bold hover:bg-zinc-50 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="flex-1 bg-orange-500 text-white px-6 py-4 rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-100 disabled:opacity-50"
-                  >
-                    {submitting ? 'Submitting...' : 'Save Evaluation'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

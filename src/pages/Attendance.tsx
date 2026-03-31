@@ -1,207 +1,172 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, serverTimestamp, orderBy, doc, updateDoc, Timestamp } from 'firebase/firestore';
-import { toast } from 'sonner';
-import { Clock, ArrowUpRight, ArrowDownRight, Calendar, UserCheck, Timer } from 'lucide-react';
-import { AttendanceRecord } from '../types';
+import { 
+  Clock, ArrowUpRight, ArrowDownRight, Calendar, 
+  UserCheck, Timer, Search, Filter, Download
+} from 'lucide-react';
+import { AttendanceRecord, UserProfile } from '../types';
+import { mockService } from '../mockService';
+import { useAuth } from '../hooks/useAuth';
 import { cn, formatDate } from '../lib/utils';
 import { motion } from 'motion/react';
 
-import { useAuth } from '../hooks/useAuth';
-import { handleFirestoreError, OperationType } from '../firebase';
-
 export default function Attendance() {
-  const { user, uid, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
+  const [employees, setEmployees] = useState<UserProfile[]>([]);
+  const [search, setSearch] = useState('');
+  const [filterBranch, setFilterBranch] = useState('All');
 
   useEffect(() => {
-    if (!uid) return;
+    loadData();
+  }, [user]);
 
-    const isDemo = !!localStorage.getItem('hr_pulse_demo_user');
-    if (isDemo) {
-      const today = new Date().toISOString().split('T')[0];
-      const mockRecords: AttendanceRecord[] = [
-        { id: 'att-1', userId: uid, date: today, checkIn: { toDate: () => new Date(new Date().setHours(9, 0)) } as any, checkOut: { toDate: () => new Date(new Date().setHours(17, 0)) } as any, isLate: false, isEarlyOut: false },
-        { id: 'att-2', userId: uid, date: '2024-03-20', checkIn: { toDate: () => new Date(new Date().setHours(8, 45)) } as any, checkOut: { toDate: () => new Date(new Date().setHours(17, 15)) } as any, isLate: false, isEarlyOut: false }
-      ];
-      setRecords(mockRecords);
-      setTodayRecord(mockRecords[0]);
-      setLoading(false);
-      return;
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-    const q = query(
-      collection(db, 'attendance'),
-      where('userId', '==', uid),
-      orderBy('date', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const allRecords = snap.docs.map(d => ({ id: d.id, ...d.data() })) as AttendanceRecord[];
-      setRecords(allRecords);
-      
-      const todayRec = allRecords.find(r => r.date === today);
-      setTodayRecord(todayRec || null);
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching attendance records:", error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [uid]);
-
-  const handleCheckIn = async () => {
-    if (!uid) return;
-    const today = new Date().toISOString().split('T')[0];
-    try {
-      await addDoc(collection(db, 'attendance'), {
-        userId: uid,
-        date: today,
-        checkIn: serverTimestamp(),
-      });
-      toast.success('Checked in successfully!');
-    } catch (e: any) {
-      handleFirestoreError(e, OperationType.WRITE, 'attendance');
+  const loadData = () => {
+    if (user?.role === 'hr' || user?.role === 'owner' || user?.role === 'super') {
+      setRecords(mockService.getAttendance());
+      setEmployees(mockService.getEmployees());
+    } else {
+      setRecords(mockService.getAttendance(user?.uid));
     }
   };
 
-  const handleCheckOut = async () => {
-    if (!todayRecord?.id) return;
-    try {
-      await updateDoc(doc(db, 'attendance', todayRecord.id), {
-        checkOut: serverTimestamp(),
-      });
-      toast.success('Checked out successfully!');
-    } catch (e: any) {
-      handleFirestoreError(e, OperationType.WRITE, `attendance/${todayRecord.id}`);
-    }
-  };
+  const branches = ['All', ...new Set(employees.map(e => e.branch))];
 
-  if (loading) return <div className="p-8 text-center text-zinc-400">Loading attendance logs...</div>;
+  const filteredRecords = records.filter(r => {
+    const emp = employees.find(e => e.uid === r.userId);
+    const matchesSearch = emp ? emp.name.toLowerCase().includes(search.toLowerCase()) : true;
+    const matchesBranch = filterBranch === 'All' || (emp ? emp.branch === filterBranch : true);
+    return matchesSearch && matchesBranch;
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const isCheckedIn = !!todayRecord;
-  const isCheckedOut = !!todayRecord?.checkOut;
+  const getEmpName = (uid: string) => employees.find(e => e.uid === uid)?.name || 'Unknown';
 
   return (
     <div className="space-y-8 pb-12">
-      <div>
-        <h1 className="text-3xl font-black text-zinc-900">Attendance Log</h1>
-        <p className="text-zinc-500 font-medium">Track your daily work hours and shifts</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-zinc-900">Attendance Log</h1>
+          <p className="text-zinc-500 font-medium">Track daily work hours and shifts</p>
+        </div>
+        <button className="bg-white border border-zinc-200 text-zinc-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all">
+          <Download size={18} />
+          Export Logs
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1">
-          <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm sticky top-24">
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-bold text-zinc-900 flex items-center gap-2">
-                <Clock size={20} className="text-orange-500" />
-                Today's Shift
-              </h3>
-              <div className={cn(
-                "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
-                isCheckedOut ? "bg-zinc-100 text-zinc-500" : 
-                isCheckedIn ? "bg-green-50 text-green-600" : "bg-amber-50 text-amber-600"
-              )}>
-                {isCheckedOut ? 'Completed' : isCheckedIn ? 'Active' : 'Not Started'}
-              </div>
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600">
+              <UserCheck size={18} />
             </div>
-
-            <div className="space-y-6">
-              <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl">
-                <div className="flex items-center gap-3">
-                  <ArrowUpRight size={18} className="text-green-600" />
-                  <span className="text-sm font-bold text-zinc-600">Check In</span>
-                </div>
-                <span className="text-sm font-black text-zinc-900">
-                  {todayRecord?.checkIn ? todayRecord.checkIn.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between p-4 bg-zinc-50 rounded-2xl">
-                <div className="flex items-center gap-3">
-                  <ArrowDownRight size={18} className="text-red-600" />
-                  <span className="text-sm font-bold text-zinc-600">Check Out</span>
-                </div>
-                <span className="text-sm font-black text-zinc-900">
-                  {todayRecord?.checkOut ? todayRecord.checkOut.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                </span>
-              </div>
-
-              {!isCheckedIn ? (
-                <button 
-                  onClick={handleCheckIn}
-                  className="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-100 flex items-center justify-center gap-2"
-                >
-                  <UserCheck size={20} />
-                  Check In Now
-                </button>
-              ) : !isCheckedOut ? (
-                <button 
-                  onClick={handleCheckOut}
-                  className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-100 flex items-center justify-center gap-2"
-                >
-                  <Timer size={20} />
-                  Check Out
-                </button>
-              ) : (
-                <div className="w-full bg-zinc-100 text-zinc-500 py-4 rounded-2xl font-bold text-center">
-                  Shift Completed
-                </div>
-              )}
-            </div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Total Logs</span>
           </div>
+          <p className="text-2xl font-black text-zinc-900">{records.length}</p>
         </div>
-
-        <div className="md:col-span-2">
-          <div className="bg-white rounded-[2.5rem] border border-zinc-100 shadow-sm overflow-hidden">
-            <div className="p-8 border-b border-zinc-50">
-              <h2 className="text-xl font-black text-zinc-900">History</h2>
+        <div className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600">
+              <Clock size={18} />
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-zinc-50/50">
-                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Date</th>
-                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Check In</th>
-                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Check Out</th>
-                    <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-50">
-                  {records.map((record) => (
-                    <tr key={record.id} className="hover:bg-zinc-50/30 transition-colors">
-                      <td className="px-8 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500">
-                            <Calendar size={16} />
-                          </div>
-                          <span className="text-sm font-bold text-zinc-900">{record.date}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-5 text-sm font-bold text-zinc-700">
-                        {record.checkIn.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="px-8 py-5 text-sm font-bold text-zinc-700">
-                        {record.checkOut ? record.checkOut.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
-                      </td>
-                      <td className="px-8 py-5">
-                        <span className={cn(
-                          "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
-                          record.checkOut ? "bg-green-50 text-green-700 border-green-100" : "bg-amber-50 text-amber-700 border-amber-100"
-                        )}>
-                          {record.checkOut ? 'Completed' : 'Active'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Late Check-ins</span>
           </div>
+          <p className="text-2xl font-black text-zinc-900">{records.filter(r => r.isLate).length}</p>
+        </div>
+        <div className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600">
+              <Timer size={18} />
+            </div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Completed Shifts</span>
+          </div>
+          <p className="text-2xl font-black text-zinc-900">{records.filter(r => r.checkOut).length}</p>
+        </div>
+      </div>
+
+      {/* Filters (Only for Admin/HR) */}
+      {(user?.role !== 'employee') && (
+        <div className="bg-white p-4 rounded-[2rem] border border-zinc-100 shadow-sm flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search by employee name..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+            />
+          </div>
+          <select 
+            value={filterBranch}
+            onChange={(e) => setFilterBranch(e.target.value)}
+            className="px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-bold text-zinc-600 outline-none focus:ring-2 focus:ring-orange-500"
+          >
+            {branches.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </div>
+      )}
+
+      {/* Attendance Table */}
+      <div className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-zinc-50/50">
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Employee</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Date</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Check In</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Check Out</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-50">
+              {filteredRecords.map((record) => (
+                <tr key={record.id} className="hover:bg-zinc-50/30 transition-colors">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-500 font-black text-xs">
+                        {getEmpName(record.userId).charAt(0)}
+                      </div>
+                      <span className="font-bold text-zinc-900">{getEmpName(record.userId)}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-2 text-sm font-bold text-zinc-700">
+                      <Calendar size={14} className="text-zinc-400" />
+                      {formatDate(record.date)}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-2">
+                      <ArrowUpRight size={14} className={record.isLate ? "text-red-500" : "text-green-500"} />
+                      <span className={cn("text-sm font-black", record.isLate ? "text-red-600" : "text-zinc-900")}>
+                        {new Date(record.checkIn).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {record.isLate && <span className="text-[8px] font-black uppercase bg-red-50 text-red-600 px-1.5 py-0.5 rounded">Late</span>}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-2">
+                      <ArrowDownRight size={14} className={record.isEarlyOut ? "text-amber-500" : "text-blue-500"} />
+                      <span className="text-sm font-black text-zinc-900">
+                        {record.checkOut ? new Date(record.checkOut).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                      </span>
+                      {record.isEarlyOut && <span className="text-[8px] font-black uppercase bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded">Early</span>}
+                    </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <div className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border",
+                      record.checkOut ? "bg-green-50 text-green-700 border-green-100" : "bg-amber-50 text-amber-700 border-amber-100"
+                    )}>
+                      {record.checkOut ? 'Completed' : 'Active'}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

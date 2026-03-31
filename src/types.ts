@@ -1,20 +1,20 @@
-import { Timestamp } from 'firebase/firestore';
-
-export type UserRole = 'owner' | 'hr' | 'employee' | 'super';
+export type UserRole = 'super' | 'owner' | 'hr' | 'employee';
 
 export interface UserProfile {
   uid: string;
-  username: string;
   name: string;
   email: string;
   role: UserRole;
+  branch: string;
   department?: string;
-  branch?: string; // Added branch
-  startDate?: Timestamp; // Added start date
-  profilePic?: string;
-  mustResetPassword?: boolean;
-  salary: number;
-  salaryB?: number; // Added Salary-B
+  joinDate: string;
+  basic: number;
+  epf: number;
+  etf: number;
+  allowances: number;
+  deductions: number;
+  net: number;
+  performanceScore?: number;
   leaveQuotas: {
     annual: number;
     sick: number;
@@ -27,12 +27,20 @@ export interface UserProfile {
     casual: number;
     short: number;
   };
-  performanceScore: number;
-  createdAt: Timestamp;
 }
 
-export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
+export interface AttendanceRecord {
+  id?: string;
+  userId: string;
+  date: string;
+  checkIn: any; // Timestamp or Date
+  checkOut?: any;
+  isLate: boolean;
+  isEarlyOut: boolean;
+}
+
 export type LeaveType = 'Annual' | 'Sick' | 'Casual' | 'Short';
+export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';
 
 export interface LeaveRequest {
   id?: string;
@@ -40,23 +48,20 @@ export interface LeaveRequest {
   userName: string;
   userRole: UserRole;
   leaveType: LeaveType;
+  startDate: any;
+  endDate: any;
   reason: string;
-  startDate: Timestamp;
-  endDate: Timestamp;
   status: LeaveStatus;
+  approvedBy?: string;
+  createdAt: any;
   isUrgent?: boolean;
-  approvedBy?: string; // UID of the approver
-  createdAt: Timestamp;
 }
 
-export interface AttendanceRecord {
-  id?: string;
-  userId: string;
-  date: string; // YYYY-MM-DD
-  checkIn: Timestamp;
-  checkOut?: Timestamp;
-  isLate: boolean;
-  isEarlyOut: boolean;
+export interface Holiday {
+  id: string;
+  date: string;
+  title: string;
+  type: 'Public' | 'Bank' | 'Mercantile';
 }
 
 export interface Task {
@@ -64,49 +69,41 @@ export interface Task {
   userId: string;
   title: string;
   completed: boolean;
-  createdAt: Timestamp;
-}
-
-export interface Holiday {
-  id?: string;
-  title: string;
-  date: string; // YYYY-MM-DD
-  type: 'public' | 'company';
+  createdAt: any;
 }
 
 export interface PayrollRecord {
   id?: string;
   userId: string;
   userName: string;
-  branch: string;
-  startDate: Timestamp;
-  month: number; // 1-12
+  month: number;
   year: number;
-  salaryA: number;
-  salaryB: number;
+  basic: number;
+  allowances: number;
+  deductions: number;
   epf: number;
-  advances: number;
-  coverDedication: number;
-  intensive: number;
-  travelling: number;
+  etf: number;
   netSalary: number;
-  cutoffDate?: string; // YYYY-MM-DD
   status: 'Paid' | 'Pending';
-  createdAt: Timestamp;
+  createdAt: any;
+  branch: string;
+  // Additional fields for management
+  incentives?: number;
+  bonus?: number;
 }
 
 export interface PerformanceRecord {
-  id?: string;
+  id: string;
   userId: string;
   userName: string;
   evaluatorId: string;
   evaluatorName: string;
-  score: number; // 1-100
-  rating: number; // 1-5
-  feedback: string; // Employee feedback/self-eval
-  hrFeedback: string; // Feedback from HR
-  goals: string[];
+  score: number;
+  rating: number;
+  feedback: string;
+  hrFeedback?: string;
   selfEvaluation?: string;
-  status: 'Pending' | 'Self-Evaluated' | 'Completed';
-  createdAt: Timestamp;
+  goals: string[];
+  status: 'Draft' | 'Completed' | 'Self-Evaluated';
+  createdAt: any;
 }

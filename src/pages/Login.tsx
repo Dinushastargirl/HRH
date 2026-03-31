@@ -1,250 +1,124 @@
 import React, { useState } from 'react';
-import { auth, db } from '../firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc, updateDoc, query, where, getDocs, setDoc, deleteDoc, collection } from 'firebase/firestore';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { Briefcase, Mail, Lock, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { LogIn, ShieldCheck, KeyRound } from 'lucide-react';
-import { motion } from 'motion/react';
-import { UserRole } from '../types';
 
 export default function Login() {
-  const [username, setUsername] = useState('');
+  const { login } = useAuth();
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    const trimmedUsername = username.trim();
-    if (!trimmedUsername) {
-      toast.error('Please enter a username');
-      setLoading(false);
-      return;
-    }
-
-    // Map username to email convention
-    const email = trimmedUsername.includes('@') ? trimmedUsername : `${trimmedUsername}@hrpulse.com`;
-
     try {
-      // Dummy Login Bypass for Demo
-      const isDemo = (trimmedUsername === 'owner' || trimmedUsername === 'hr' || trimmedUsername === 'employee' || trimmedUsername === 'super') && 
-                    (trimmedUsername === 'super' ? password === '1234' : password === '4321');
-      
-      if (isDemo) {
-        const mockUid = `demo_${trimmedUsername}`;
-        const defaultQuotas = { annual: 14, sick: 7, casual: 7, short: 4 };
-        const defaultUsed = { annual: 0, sick: 0, casual: 0, short: 0 };
-        let role: UserRole = trimmedUsername as any;
-        let name = trimmedUsername === 'owner' ? 'Company Owner' : 
-                   trimmedUsername === 'hr' ? 'HR Manager' : 
-                   trimmedUsername === 'super' ? 'Super Admin' : 'Demo Employee';
-        
-        const userData = {
-          uid: mockUid,
-          username: trimmedUsername,
-          name: name,
-          email: `${trimmedUsername}@demo.com`,
-          role: role,
-          salary: role === 'owner' ? 0 : 5000,
-          leaveQuotas: defaultQuotas,
-          usedLeaves: defaultUsed,
-          performanceScore: 100,
-          mustResetPassword: false,
-          createdAt: new Date()
-        };
-        
-        localStorage.setItem('hr_pulse_demo_user', JSON.stringify(userData));
-        toast.success(`Demo Mode: Welcome, ${userData.name}!`);
-        navigate('/dashboard');
-        return;
-      }
-
-      // Basic email validation before sending to Firebase
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        toast.error('Invalid username or email format');
-        setLoading(false);
-        return;
-      }
-
-      const { user } = await signInWithEmailAndPassword(auth, email, password);
-      
-      const docRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const userData = docSnap.data();
-        if (userData.mustResetPassword) {
-          toast.info('First login detected. Please reset your password.');
-          navigate('/reset-password');
-        } else {
-          toast.success(`Welcome back, ${userData.name}!`);
-          navigate('/dashboard');
-        }
-      } else {
-        // Bootstrap pre-created accounts if they don't exist in Firestore yet
-        const defaultQuotas = { annual: 14, sick: 7, casual: 7, short: 4 };
-        const defaultUsed = { annual: 0, sick: 0, casual: 0, short: 0 };
-        
-        let role: 'owner' | 'hr' | 'employee' = 'employee';
-        let name = 'Employee';
-        
-        if (username === 'owner') {
-          role = 'owner';
-          name = 'Company Owner';
-        } else if (username === 'hr') {
-          role = 'hr';
-          name = 'HR Manager';
-        }
-
-        const newUser = {
-          uid: user.uid,
-          username: username,
-          name: name,
-          email: email,
-          role: role,
-          salary: role === 'owner' ? 0 : 5000,
-          leaveQuotas: defaultQuotas,
-          usedLeaves: defaultUsed,
-          performanceScore: 100,
-          mustResetPassword: password === '4321', // Force reset if using default password
-          createdAt: new Date()
-        };
-
-        await setDoc(docRef, newUser);
-        
-        if (newUser.mustResetPassword) {
-          toast.info('First login detected. Please reset your password.');
-          navigate('/reset-password');
-        } else {
-          toast.success(`Welcome back, ${newUser.name}!`);
-          navigate('/dashboard');
-        }
-      }
+      await login(email, password);
+      toast.success('Welcome back!');
     } catch (error: any) {
-      console.error(error);
-      toast.error('Invalid username or password');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const seedDemoData = async () => {
-    setLoading(true);
-    try {
-      const demoUsers = [
-        { username: 'super', password: '1234', role: 'super', name: 'Super Admin' },
-        { username: 'owner', password: '4321', role: 'owner', name: 'Company Owner' },
-        { username: 'hr', password: '4321', role: 'hr', name: 'HR Manager' },
-        { username: 'employee', password: '4321', role: 'employee', name: 'Demo Employee' },
-      ];
-
-      const defaultQuotas = { annual: 14, sick: 7, casual: 7, short: 4 };
-      const defaultUsed = { annual: 0, sick: 0, casual: 0, short: 0 };
-
-      for (const demo of demoUsers) {
-        const mockUid = `demo_${demo.username}`;
-        const docRef = doc(db, 'users', mockUid);
-        const userData = {
-          uid: mockUid,
-          username: demo.username,
-          name: demo.name,
-          email: `${demo.username}@demo.com`,
-          role: demo.role,
-          salary: demo.role === 'owner' ? 0 : 5000,
-          leaveQuotas: defaultQuotas,
-          usedLeaves: defaultUsed,
-          performanceScore: 100,
-          mustResetPassword: false,
-          createdAt: new Date()
-        };
-        await setDoc(docRef, userData);
-      }
-      toast.success('Demo data initialized successfully!');
-    } catch (error) {
-      console.error(error);
-      toast.error('Failed to initialize demo data');
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50 p-4">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-zinc-100 overflow-hidden"
-      >
-        <div className="p-8 md:p-12">
-          <div className="flex justify-center mb-10">
-            <div className="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-orange-200">
-              <ShieldCheck size={36} />
+    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-6">
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-2 bg-white rounded-[2.5rem] shadow-2xl shadow-zinc-200/50 overflow-hidden border border-zinc-100">
+        {/* Left Side - Visual */}
+        <div className="hidden lg:flex flex-col justify-between p-12 bg-gradient-to-br from-orange-500 to-orange-600 text-white relative overflow-hidden">
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-12">
+              <div className="w-12 h-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+                <Briefcase size={28} />
+              </div>
+              <h1 className="text-2xl font-black tracking-tight">HR PULSE</h1>
             </div>
+            <h2 className="text-5xl font-black leading-tight mb-6">
+              Manage your <br /> workforce with <br /> precision.
+            </h2>
+            <p className="text-orange-100 text-lg font-medium max-w-sm">
+              The all-in-one platform for attendance, payroll, and employee growth.
+            </p>
           </div>
-          
-          <h1 className="text-3xl font-black text-center text-zinc-900 mb-2">HR</h1>
-          <p className="text-zinc-500 text-center mb-10 font-medium">Enterprise Management Portal</p>
 
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Username</label>
-              <input
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
-                placeholder="Enter your username"
-              />
+          <div className="relative z-10 flex items-center gap-4">
+            <div className="flex -space-x-3">
+              {[1,2,3,4].map(i => (
+                <div key={i} className="w-10 h-10 rounded-full border-2 border-orange-500 bg-orange-400 flex items-center justify-center text-[10px] font-bold">
+                  {i}
+                </div>
+              ))}
             </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
-                placeholder="••••••••"
-              />
+            <p className="text-sm font-bold text-orange-100">Trusted by 500+ companies</p>
+          </div>
+
+          {/* Decorative elements */}
+          <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-[-10%] left-[-5%] w-48 h-48 bg-orange-400/20 rounded-full blur-2xl"></div>
+        </div>
+
+        {/* Right Side - Form */}
+        <div className="p-8 lg:p-16 flex flex-col justify-center">
+          <div className="mb-10">
+            <h3 className="text-3xl font-black text-zinc-900 mb-2">Sign In</h3>
+            <p className="text-zinc-500 font-medium">Enter your credentials to access the HR Pulse dashboard.</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all"
+                  required
+                />
+              </div>
+
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all"
+                  required
+                />
+              </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-500 text-white py-4 rounded-2xl font-bold hover:bg-orange-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50 shadow-lg shadow-orange-100 active:scale-[0.98]"
+              className="w-full bg-zinc-900 text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-zinc-800 transition-all shadow-xl shadow-zinc-200 disabled:opacity-50"
             >
-              {loading ? (
-                <div className="w-6 h-6 border-3 border-white/30 border-b-white rounded-full animate-spin" />
-              ) : (
-                <LogIn size={20} />
-              )}
-              Sign In
+              {loading ? 'Authenticating...' : 'Sign In to Dashboard'}
+              <ChevronRight size={20} />
             </button>
           </form>
 
-          <div className="mt-6">
-            <button
-              onClick={seedDemoData}
-              disabled={loading}
-              className="w-full py-3 px-4 rounded-xl border border-zinc-200 text-zinc-500 text-sm font-bold hover:bg-zinc-50 transition-all active:scale-[0.98] disabled:opacity-50"
-            >
-              Initialize Demo Data
-            </button>
+          <div className="mt-8 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Demo Credentials (Password: 1234 or 4321)</p>
+            <div className="grid grid-cols-1 gap-1 text-[10px] font-bold text-zinc-600">
+              <div>Super Admin: super@hrpulse.com (1234)</div>
+              <div>Owner: owner@hrpulse.com (4321)</div>
+              <div>HR Manager: hr@hrpulse.com (4321)</div>
+              <div>Employee: dahami.divyanjali@hrpulse.com (1234)</div>
+            </div>
           </div>
 
-          <div className="mt-10 pt-8 border-t border-zinc-50 text-center">
-            <p className="text-xs text-zinc-400 font-medium">
-              Protected by Enterprise Security. <br/>
-              Contact HR if you've lost your access.
+          <div className="mt-12 pt-8 border-t border-zinc-100 text-center">
+            <p className="text-xs font-bold text-zinc-400 uppercase tracking-widest">
+              Need help? Contact system administrator
             </p>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }

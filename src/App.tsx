@@ -1,46 +1,71 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import Layout from './components/Layout';
+import { AuthProvider, useAuth } from './hooks/useAuth';
+import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import EmployeeManagement from './pages/admin/EmployeeManagement';
-import LeaveManagement from './pages/admin/LeaveManagement';
-import PayrollManagement from './pages/admin/PayrollManagement';
-import PerformanceManagement from './pages/admin/PerformanceManagement';
-import Performance from './pages/Performance';
-import CalendarPage from './pages/Calendar';
-import ResetPassword from './pages/ResetPassword';
+import Employees from './pages/Employees';
 import Attendance from './pages/Attendance';
-import Tasks from './pages/Tasks';
+import Leaves from './pages/Leaves';
+import Payroll from './pages/Payroll';
+import ManagePayroll from './pages/ManagePayroll';
+import Performance from './pages/Performance';
+import Calendar from './pages/Calendar';
 import Profile from './pages/Profile';
+
+const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-zinc-50">
+        <div className="w-12 h-12 border-4 border-zinc-200 border-t-orange-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  return (
+    <div className="flex min-h-screen bg-zinc-50">
+      <Sidebar />
+      <main className="flex-1 p-4 md:p-8 lg:p-12 overflow-y-auto max-h-screen">
+        <div className="max-w-7xl mx-auto">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+      <Route path="/employees" element={<PrivateRoute><Employees /></PrivateRoute>} />
+      <Route path="/attendance" element={<PrivateRoute><Attendance /></PrivateRoute>} />
+      <Route path="/leaves" element={<PrivateRoute><Leaves /></PrivateRoute>} />
+      <Route path="/payroll" element={<PrivateRoute><Payroll /></PrivateRoute>} />
+      <Route path="/manage-payroll" element={<PrivateRoute><ManagePayroll /></PrivateRoute>} />
+      <Route path="/performance" element={<PrivateRoute><Performance /></PrivateRoute>} />
+      <Route path="/calendar" element={<PrivateRoute><Calendar /></PrivateRoute>} />
+      <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+      <Route path="*" element={<Navigate to="/" />} />
+    </Routes>
+  );
+}
 
 export default function App() {
   return (
-    <Router>
-      <Toaster position="top-right" richColors />
-      <Layout>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/tasks" element={<Tasks />} />
-          <Route path="/calendar" element={<CalendarPage />} />
-          <Route path="/profile" element={<Profile />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/employees" element={<EmployeeManagement />} />
-          <Route path="/admin/leaves" element={<LeaveManagement />} />
-          <Route path="/admin/payroll" element={<PayrollManagement />} />
-          <Route path="/admin/performance" element={<PerformanceManagement />} />
-          <Route path="/performance" element={<Performance />} />
-          
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Layout>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <AppRoutes />
+        <Toaster position="top-right" richColors closeButton />
+      </Router>
+    </AuthProvider>
   );
 }

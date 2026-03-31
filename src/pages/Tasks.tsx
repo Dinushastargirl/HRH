@@ -217,7 +217,7 @@ export default function Tasks() {
                       {task.title}
                     </p>
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mt-1">
-                      Added {formatDate(task.createdAt.toDate())}
+                      Added {formatDate(task.createdAt)}
                     </p>
                   </div>
                   <button 

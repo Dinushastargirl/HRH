@@ -42,9 +42,11 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function AppRoutes() {
+  const { user } = useAuth();
+  
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/employees" element={<PrivateRoute><Employees /></PrivateRoute>} />
       <Route path="/attendance" element={<PrivateRoute><Attendance /></PrivateRoute>} />
@@ -54,7 +56,7 @@ function AppRoutes() {
       <Route path="/performance" element={<PrivateRoute><Performance /></PrivateRoute>} />
       <Route path="/calendar" element={<PrivateRoute><Calendar /></PrivateRoute>} />
       <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
-      <Route path="*" element={<Navigate to="/" />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

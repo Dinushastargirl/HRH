@@ -18,13 +18,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('hr_pulse_user');
-    if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
-      setUid(parsedUser.uid);
+    try {
+      const storedUser = localStorage.getItem('hr_pulse_user');
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setUid(parsedUser.uid);
+      }
+    } catch (error) {
+      console.error('Failed to parse stored user:', error);
+      localStorage.removeItem('hr_pulse_user');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {

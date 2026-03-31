@@ -1,13 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Briefcase, Mail, Lock, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { user, login } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,6 +23,7 @@ export default function Login() {
     try {
       await login(email, password);
       toast.success('Welcome back!');
+      // Redirection is handled by the useEffect above
     } catch (error: any) {
       toast.error(error.message);
     } finally {

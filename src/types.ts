@@ -4,6 +4,8 @@ export interface UserProfile {
   uid: string;
   name: string;
   email: string;
+  username: string;
+  password?: string; // Hashed
   role: UserRole;
   branch: string;
   department?: string;

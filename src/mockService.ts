@@ -3,13 +3,16 @@ import {
   Task, PayrollRecord, PerformanceRecord 
 } from './types';
 import { MOCK_EMPLOYEES_DATA } from './constants';
+import bcrypt from 'bcryptjs';
 
 // Initial data setup
 const INITIAL_EMPLOYEES: UserProfile[] = MOCK_EMPLOYEES_DATA.map((emp, i) => ({
   uid: `emp-${i}`,
   name: emp.name,
   email: `${emp.name.toLowerCase().replace(/\s/g, '.')}@hrpulse.com`,
-  role: 'employee',
+  username: emp.username || emp.name.toLowerCase().split(' ')[0],
+  password: bcrypt.hashSync(emp.password || 'employee123', 10),
+  role: (emp.role as any) || 'employee',
   branch: emp.branch,
   joinDate: emp.joinDate,
   basic: emp.basic,
@@ -40,9 +43,36 @@ export const mockService = {
   saveEmployee: (emp: UserProfile) => {
     const emps = mockService.getEmployees();
     const index = emps.findIndex(e => e.uid === emp.uid);
-    if (index > -1) emps[index] = emp;
-    else emps.push(emp);
+    
+    // Hash password if it's new or changed (mock logic: if it's not already hashed)
+    if (emp.password && !emp.password.startsWith('$2a$')) {
+      emp.password = bcrypt.hashSync(emp.password, 10);
+    }
+
+    if (index > -1) {
+      // Preserve password if not provided in update
+      if (!emp.password) emp.password = emps[index].password;
+      emps[index] = emp;
+    } else {
+      if (!emp.password) emp.password = bcrypt.hashSync('employee123', 10);
+      emps.push(emp);
+    }
     save('employees', emps);
+  },
+  addIncentiveDeduction: (uid: string, amount: number, type: 'incentive' | 'deduction') => {
+    const emps = mockService.getEmployees();
+    const index = emps.findIndex(e => e.uid === uid);
+    if (index > -1) {
+      if (type === 'incentive') {
+        emps[index].allowances += amount;
+      } else {
+        emps[index].deductions += amount;
+      }
+      emps[index].net = emps[index].basic + emps[index].allowances - emps[index].deductions;
+      save('employees', emps);
+      return true;
+    }
+    return false;
   },
   deleteEmployee: (uid: string) => {
     const emps = mockService.getEmployees().filter(e => e.uid !== uid);

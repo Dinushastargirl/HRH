@@ -1,6 +1,8 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { UserProfile, UserRole } from '../types';
 import { MOCK_EMPLOYEES_DATA } from '../constants';
+import { mockService } from '../mockService';
+import bcrypt from 'bcryptjs';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -50,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: `mock-${admin.role}-id`,
         name: admin.name,
         email: admin.email,
+        username: admin.email.split('@')[0],
         role: admin.role,
         branch: 'Office',
         joinDate: '2024-01-01',
@@ -60,34 +63,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         deductions: 2000,
         net: 49500,
         performanceScore: 85,
-        leaveQuotas: { annual: 20, sick: 10, casual: 5, short: 2 },
+        leaveQuotas: { annual: 20, sick: 10, casual: 7, short: 2 },
         usedLeaves: { annual: 2, sick: 1, casual: 0, short: 0 },
       };
     } else {
-      // Check mock employees
-      const employee = MOCK_EMPLOYEES_DATA.find(e => {
-        const empEmail = e.name.toLowerCase().replace(/\s+/g, '.') + '@hrpulse.com';
-        return empEmail === email.toLowerCase() && password === '1234';
+      // Check mock employees from mockService
+      const employees = mockService.getEmployees();
+      const employee = employees.find(e => {
+        const empEmail = e.email.toLowerCase();
+        const usernameMatch = e.username.toLowerCase() === email.toLowerCase();
+        const emailMatch = empEmail === email.toLowerCase();
+        
+        if (emailMatch || usernameMatch) {
+          // Verify hashed password
+          return bcrypt.compareSync(password, e.password || '');
+        }
+        return false;
       });
 
       if (employee) {
-        foundUser = {
-          uid: `emp-${employee.name.replace(/\s+/g, '-')}`,
-          name: employee.name,
-          email: employee.name.toLowerCase().replace(/\s+/g, '.') + '@hrpulse.com',
-          role: 'employee',
-          branch: employee.branch,
-          joinDate: employee.joinDate,
-          basic: employee.basic,
-          epf: employee.epf,
-          etf: employee.etf,
-          allowances: employee.allowances,
-          deductions: employee.deductions,
-          net: employee.net,
-          performanceScore: 80,
-          leaveQuotas: { annual: 20, sick: 10, casual: 5, short: 2 },
-          usedLeaves: { annual: 0, sick: 0, casual: 0, short: 0 },
-        };
+        foundUser = employee;
       }
     }
 

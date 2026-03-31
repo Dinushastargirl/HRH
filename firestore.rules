@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper Functions
+    function isAuthenticated() { return request.auth != null; }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isOwner() {
+      return isAuthenticated() && (
+        getUserData().role == 'owner' || 
+        request.auth.token.email == 'dinudinu4927@gmail.com' ||
+        request.auth.token.email == 'owner@hrpulse.com'
+      );
+    }
+    
+    function isSuper() {
+      return isAuthenticated() && (getUserData().role == 'super' || isOwner());
+    }
+    
+    function isHR() {
+      return isAuthenticated() && (getUserData().role == 'hr' || isSuper() || isOwner());
+    }
+    
+    function isEmployee(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'username', 'name', 'email', 'role', 'salary', 'leaveQuotas', 'usedLeaves', 'performanceScore', 'createdAt']) &&
+             data.role in ['owner', 'hr', 'employee', 'super'] &&
+             data.salary is number &&
+             data.performanceScore is number;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isHR() && isValidUser(request.resource.data) && (request.resource.data.role != 'owner' || isOwner());
+      allow update: if isAuthenticated() && (
+        isOwner() || 
+        (isHR() && resource.data.role == 'employee' && request.resource.data.role == 'employee') ||
+        (isEmployee(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'profilePic', 'mustResetPassword']))
+      );
+      allow delete: if isOwner();
+    }
+
+    match /leaveRequests/{requestId} {
+      function isValidLeave(data) {
+        return data.keys().hasAll(['userId', 'userName', 'userRole', 'leaveType', 'reason', 'startDate', 'endDate', 'status', 'createdAt']) &&
+               data.leaveType in ['Annual', 'Sick', 'Casual', 'Short'] &&
+               data.status in ['Pending', 'Approved', 'Rejected'];
+      }
+
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isHR());
+      allow create: if isAuthenticated() && isValidLeave(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        (isOwner() && isValidLeave(request.resource.data)) ||
+        (isHR() && resource.data.userRole == 'employee' && resource.data.userId != request.auth.uid && isValidLeave(request.resource.data)) ||
+        (resource.data.userId == request.auth.uid && resource.data.status == 'Pending' && request.resource.data.status == 'Pending')
+      );
+      allow delete: if isOwner() || (isHR() && resource.data.userRole == 'employee');
+    }
+
+    match /attendance/{id} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isHR());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isHR());
+    }
+
+    match /tasks/{id} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isHR());
+      allow write: if isAuthenticated() && (request.resource.data.userId == request.auth.uid || isHR());
+    }
+
+    match /holidays/{id} {
+      allow read: if isAuthenticated();
+      allow write: if isHR();
+    }
+
+    match /payroll/{id} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isHR());
+      allow write: if isHR();
+    }
+
+    match /performance/{id} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isHR());
+      allow write: if isHR();
+    }
+  }
+}

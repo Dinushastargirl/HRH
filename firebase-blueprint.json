@@ -1,0 +1,138 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Employee, HR, Super or Owner user profile",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "username": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["employee", "hr", "owner", "super"] },
+        "department": { "type": "string" },
+        "branch": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "profilePic": { "type": "string" },
+        "mustResetPassword": { "type": "boolean" },
+        "salary": { "type": "number" },
+        "salaryB": { "type": "number" },
+        "leaveQuotas": {
+          "type": "object",
+          "properties": {
+            "annual": { "type": "number" },
+            "sick": { "type": "number" },
+            "casual": { "type": "number" },
+            "short": { "type": "number" }
+          }
+        },
+        "usedLeaves": {
+          "type": "object",
+          "properties": {
+            "annual": { "type": "number" },
+            "sick": { "type": "number" },
+            "casual": { "type": "number" },
+            "short": { "type": "number" }
+          }
+        },
+        "performanceScore": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "username", "role"]
+    },
+    "LeaveRequest": {
+      "title": "Leave Request",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "leaveType": { "type": "string", "enum": ["Annual", "Sick", "Casual", "Short"] },
+        "reason": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "isUrgent": { "type": "boolean" },
+        "approvedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Attendance": {
+      "title": "Attendance",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string" },
+        "checkIn": { "type": "string", "format": "date-time" },
+        "checkOut": { "type": "string", "format": "date-time" },
+        "isLate": { "type": "boolean" },
+        "isEarlyOut": { "type": "boolean" }
+      }
+    },
+    "Payroll": {
+      "title": "Payroll",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "branch": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "salaryA": { "type": "number" },
+        "salaryB": { "type": "number" },
+        "epf": { "type": "number" },
+        "advances": { "type": "number" },
+        "coverDedication": { "type": "number" },
+        "intensive": { "type": "number" },
+        "travelling": { "type": "number" },
+        "netSalary": { "type": "number" },
+        "status": { "type": "string", "enum": ["Paid", "Pending"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Performance": {
+      "title": "Performance",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "evaluatorId": { "type": "string" },
+        "evaluatorName": { "type": "string" },
+        "score": { "type": "number" },
+        "feedback": { "type": "string" },
+        "goals": { "type": "array", "items": { "type": "string" } },
+        "selfEvaluation": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Task": {
+      "title": "Task",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "completed": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Holiday": {
+      "title": "Holiday",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string", "enum": ["public", "company"] }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/leaveRequests/{requestId}": { "schema": "LeaveRequest", "description": "Leave requests" },
+    "/attendance/{attendanceId}": { "schema": "Attendance", "description": "Attendance logs" },
+    "/tasks/{taskId}": { "schema": "Task", "description": "Employee tasks" },
+    "/holidays/{holidayId}": { "schema": "Holiday", "description": "Company holidays" },
+    "/payroll/{payrollId}": { "schema": "Payroll", "description": "Payroll records" },
+    "/performance/{performanceId}": { "schema": "Performance", "description": "Performance evaluations" }
+  }
+}

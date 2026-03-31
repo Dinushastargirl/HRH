@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Calendar, Clock, CheckCircle2, XCircle, Plus, 
+  Calendar as CalendarIcon, Clock, CheckCircle2, XCircle, Plus, 
   ArrowUpRight, ArrowDownRight, Timer, ListTodo,
-  TrendingUp, Briefcase, UserCheck, ShieldCheck
+  TrendingUp, Briefcase, UserCheck, ShieldCheck, Trash2, Camera,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { LeaveRequest, AttendanceRecord, Task, LeaveType } from '../types';
 import { cn, formatDate } from '../lib/utils';
@@ -30,7 +31,10 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+  const [leaveImage, setLeaveImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const [calendarDate, setCalendarDate] = useState(new Date());
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -96,6 +100,11 @@ export default function Dashboard() {
     loadData();
   };
 
+  const deleteTask = (id: string) => {
+    mockService.deleteTask(id);
+    loadData();
+  };
+
   const addTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
@@ -141,6 +150,7 @@ export default function Dashboard() {
       endDate: endDate,
       status: 'Pending',
       createdAt: new Date().toISOString(),
+      imageUrl: leaveImage || undefined,
     });
     
     toast.success('Leave request submitted!');
@@ -148,8 +158,80 @@ export default function Dashboard() {
     setReason('');
     setStartDate('');
     setEndDate('');
+    setLeaveImage(null);
     setSubmitting(false);
     loadData();
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLeaveImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const renderCalendar = () => {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date();
+    
+    const days = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+    return (
+      <div className="bg-white p-6 rounded-[2rem] border border-zinc-100 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-bold text-zinc-900 flex items-center gap-2">
+            <CalendarIcon size={18} className="text-orange-500" />
+            {monthNames[month]} {year}
+          </h3>
+          <div className="flex gap-1">
+            <button 
+              onClick={() => setCalendarDate(new Date(year, month - 1))}
+              className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-400 hover:text-zinc-600 transition-all"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button 
+              onClick={() => setCalendarDate(new Date(year, month + 1))}
+              className="p-1.5 hover:bg-zinc-50 rounded-lg text-zinc-400 hover:text-zinc-600 transition-all"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-7 gap-1 text-center mb-2">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
+            <span key={d} className="text-[10px] font-bold text-zinc-400 uppercase">{d}</span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((day, i) => (
+            <div 
+              key={i} 
+              className={cn(
+                "aspect-square flex items-center justify-center text-xs font-bold rounded-xl transition-all",
+                !day ? "invisible" : "hover:bg-orange-50 cursor-default",
+                day === today.getDate() && month === today.getMonth() && year === today.getFullYear() 
+                  ? "bg-orange-500 text-white shadow-lg shadow-orange-200" 
+                  : "text-zinc-600"
+              )}
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const leaveData = user ? [
@@ -189,9 +271,17 @@ export default function Dashboard() {
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-4xl">{greeting.icon}</span>
-                <div>
-                  <h1 className="text-3xl font-black">{greeting.text}, {user?.name.split(' ')[0]}!</h1>
-                  <p className="text-orange-100 font-bold">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="text-3xl font-black">{greeting.text}, {user?.name.split(' ')[0]}!</h1>
+                      <p className="text-orange-100 font-bold">{currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                    </div>
+                    <div className="text-right hidden md:block">
+                      <p className="text-5xl font-black tracking-tighter">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+                      <p className="text-xs font-bold text-orange-200 uppercase tracking-widest">Current Time</p>
+                    </div>
+                  </div>
                 </div>
               </div>
               
@@ -361,26 +451,40 @@ export default function Dashboard() {
                 tasks.map(task => (
                   <div 
                     key={task.id} 
-                    onClick={() => toggleTask(task.id!)}
                     className={cn(
-                      "group flex items-center gap-3 p-4 rounded-2xl border transition-all cursor-pointer",
+                      "group flex items-center gap-3 p-4 rounded-2xl border transition-all",
                       task.completed ? "bg-zinc-50 border-zinc-100 opacity-60" : "bg-white border-zinc-100 hover:border-orange-200"
                     )}
                   >
-                    <div className={cn(
-                      "w-5 h-5 rounded-md border flex items-center justify-center transition-all",
-                      task.completed ? "bg-orange-500 border-orange-500 text-white" : "border-zinc-300 group-hover:border-orange-400"
-                    )}>
+                    <div 
+                      onClick={() => toggleTask(task.id!)}
+                      className={cn(
+                        "w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer",
+                        task.completed ? "bg-orange-500 border-orange-500 text-white" : "border-zinc-300 group-hover:border-orange-400"
+                      )}
+                    >
                       {task.completed && <CheckCircle2 size={12} />}
                     </div>
-                    <span className={cn("text-sm font-medium", task.completed ? "line-through text-zinc-400" : "text-zinc-700")}>
+                    <span 
+                      onClick={() => toggleTask(task.id!)}
+                      className={cn("flex-1 text-sm font-medium cursor-pointer", task.completed ? "line-through text-zinc-400" : "text-zinc-700")}
+                    >
                       {task.title}
                     </span>
+                    <button 
+                      onClick={() => deleteTask(task.id!)}
+                      className="p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 ))
               )}
             </div>
           </div>
+
+          {/* Calendar Widget */}
+          {renderCalendar()}
         </div>
       </div>
 
@@ -509,6 +613,39 @@ export default function Dashboard() {
                     className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all resize-none font-medium"
                     placeholder="Briefly explain the reason for your leave..."
                   />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Attachment (Optional)</label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      id="leave-image"
+                    />
+                    <label
+                      htmlFor="leave-image"
+                      className="flex items-center justify-center gap-2 w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-dashed border-zinc-200 hover:border-orange-300 hover:bg-orange-50 transition-all cursor-pointer group"
+                    >
+                      <Camera size={20} className="text-zinc-400 group-hover:text-orange-500" />
+                      <span className="text-sm font-bold text-zinc-500 group-hover:text-orange-600">
+                        {leaveImage ? 'Image Selected' : 'Upload Image/Document'}
+                      </span>
+                    </label>
+                    {leaveImage && (
+                      <div className="mt-4 relative inline-block">
+                        <img src={leaveImage} alt="Preview" className="w-24 h-24 object-cover rounded-xl border border-zinc-100" />
+                        <button 
+                          type="button"
+                          onClick={() => setLeaveImage(null)}
+                          className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-lg"
+                        >
+                          <XCircle size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="pt-4 flex gap-4">
                   <button

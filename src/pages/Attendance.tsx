@@ -8,6 +8,7 @@ import { mockService } from '../mockService';
 import { useAuth } from '../hooks/useAuth';
 import { cn, formatDate } from '../lib/utils';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
 
 export default function Attendance() {
   const { user } = useAuth();
@@ -21,9 +22,11 @@ export default function Attendance() {
   }, [user]);
 
   const loadData = () => {
+    const allEmps = mockService.getEmployees();
+    setEmployees(allEmps);
+    
     if (user?.role === 'hr' || user?.role === 'owner' || user?.role === 'super') {
       setRecords(mockService.getAttendance());
-      setEmployees(mockService.getEmployees());
     } else {
       setRecords(mockService.getAttendance(user?.uid));
     }
@@ -47,10 +50,44 @@ export default function Attendance() {
           <h1 className="text-3xl font-black text-zinc-900">Attendance Log</h1>
           <p className="text-zinc-500 font-medium">Track daily work hours and shifts</p>
         </div>
-        <button className="bg-white border border-zinc-200 text-zinc-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all">
-          <Download size={18} />
-          Export Logs
-        </button>
+        <div className="flex flex-col md:flex-row md:items-center gap-4">
+          {user?.role === 'employee' && (
+            <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  if (mockService.checkIn(user.uid)) {
+                    toast.success('Checked in!');
+                    loadData();
+                  } else {
+                    toast.error('Already checked in today');
+                  }
+                }}
+                className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-all shadow-lg shadow-orange-100"
+              >
+                <ArrowUpRight size={18} />
+                Check In
+              </button>
+              <button 
+                onClick={() => {
+                  if (mockService.checkOut(user.uid)) {
+                    toast.success('Checked out!');
+                    loadData();
+                  } else {
+                    toast.error('No active shift found');
+                  }
+                }}
+                className="bg-zinc-900 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-800 transition-all shadow-lg"
+              >
+                <ArrowDownRight size={18} />
+                Check Out
+              </button>
+            </div>
+          )}
+          <button className="bg-white border border-zinc-200 text-zinc-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all">
+            <Download size={18} />
+            Export Logs
+          </button>
+        </div>
       </div>
 
       {/* Stats Summary */}

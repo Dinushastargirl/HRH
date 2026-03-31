@@ -23,8 +23,8 @@ const INITIAL_EMPLOYEES: UserProfile[] = (MOCK_EMPLOYEES_DATA as any[]).map((emp
     uid: emp.uid || `emp-${i}`,
     name: emp.name || 'Unknown Employee',
     email: emp.email || `${(emp.name || 'unknown').toLowerCase().replace(/\s/g, '.')}@hrpulse.com`,
-    username: emp.username || (emp.name || 'unknown').toLowerCase().split(' ')[0],
-    password: bcrypt.hashSync(emp.password || 'employee123', 10),
+    username: emp.username || (emp.name || 'unknown').toLowerCase().replace(/\s/g, '.'),
+    password: bcrypt.hashSync(emp.password || `${(emp.name || 'unknown').toLowerCase().split(' ')[0]}123`, 10),
     role: (emp.role as any) || 'employee',
     branch: emp.branch || 'General',
     joinDate: emp.joinDate || new Date().toISOString().split('T')[0],
@@ -44,13 +44,13 @@ const INITIAL_EMPLOYEES: UserProfile[] = (MOCK_EMPLOYEES_DATA as any[]).map((emp
 
 // Helper to get from localStorage
 const get = <T>(key: string, fallback: T): T => {
-  const data = localStorage.getItem(`hr_pulse_v4_${key}`);
+  const data = localStorage.getItem(`hr_pulse_v5_${key}`);
   return data ? JSON.parse(data) : fallback;
 };
 
 // Helper to save to localStorage
 const save = <T>(key: string, data: T) => {
-  localStorage.setItem(`hr_pulse_v4_${key}`, JSON.stringify(data));
+  localStorage.setItem(`hr_pulse_v5_${key}`, JSON.stringify(data));
 };
 
 export const mockService = {
@@ -114,6 +114,39 @@ export const mockService = {
       save('attendance', all);
     }
   },
+  checkIn: (uid: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const all = mockService.getAttendance(uid);
+    const existing = all.find(a => a.date === today);
+    if (existing) return false;
+
+    const now = new Date();
+    const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 0);
+    
+    mockService.saveAttendance({
+      userId: uid,
+      date: today,
+      checkIn: now.toISOString(),
+      isLate,
+      isEarlyOut: false
+    });
+    return true;
+  },
+  checkOut: (uid: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const all = mockService.getAttendance(uid);
+    const existing = all.find(a => a.date === today && !a.checkOut);
+    if (!existing || !existing.id) return false;
+
+    const now = new Date();
+    const isEarlyOut = now.getHours() < 17;
+    
+    mockService.updateAttendance(existing.id, {
+      checkOut: now.toISOString(),
+      isEarlyOut
+    });
+    return true;
+  },
 
   // Leave Requests
   getLeaves: (uid?: string) => {
@@ -166,6 +199,11 @@ export const mockService = {
       all[index].completed = !all[index].completed;
       save('tasks', all);
     }
+  },
+  deleteTask: (id: string) => {
+    const all = get<Task[]>('tasks', []);
+    const filtered = all.filter(t => t.id !== id);
+    save('tasks', filtered);
   },
 
   // Payroll

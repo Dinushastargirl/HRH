@@ -59,6 +59,7 @@ export interface LeaveRequest {
   approvedBy?: string;
   createdAt: any;
   isUrgent?: boolean;
+  imageUrl?: string;
 }
 
 export interface Holiday {

@@ -1,22 +1,70 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   User, Mail, MapPin, Calendar, 
   Briefcase, Shield, LogOut, Edit3,
-  Phone, Globe, Github, Linkedin
+  Phone, Globe, Github, Linkedin, Save, X
 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { formatDate } from '../lib/utils';
+import { mockService } from '../mockService';
+import { toast } from 'sonner';
 
 export default function Profile() {
   const { user, logout } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: '+94 77 123 4567', // Mock phone
+  });
 
   if (!user) return null;
 
+  const handleSave = () => {
+    mockService.saveEmployee({
+      ...user,
+      name: formData.name,
+      email: formData.email,
+    });
+    setIsEditing(false);
+    toast.success('Profile updated successfully!');
+    // In a real app, we'd refresh the auth user here
+    window.location.reload(); 
+  };
+
   return (
     <div className="space-y-8 pb-12">
-      <div>
-        <h1 className="text-3xl font-black text-zinc-900">My Profile</h1>
-        <p className="text-zinc-500 font-medium">Manage your personal information and settings</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-black text-zinc-900">My Profile</h1>
+          <p className="text-zinc-500 font-medium">Manage your personal information and settings</p>
+        </div>
+        {!isEditing ? (
+          <button 
+            onClick={() => setIsEditing(true)}
+            className="flex items-center gap-2 px-6 py-3 bg-orange-500 text-white rounded-2xl font-bold hover:bg-orange-600 transition-all shadow-lg shadow-orange-100"
+          >
+            <Edit3 size={18} />
+            Edit Profile
+          </button>
+        ) : (
+          <div className="flex gap-3">
+            <button 
+              onClick={() => setIsEditing(false)}
+              className="flex items-center gap-2 px-6 py-3 bg-zinc-100 text-zinc-600 rounded-2xl font-bold hover:bg-zinc-200 transition-all"
+            >
+              <X size={18} />
+              Cancel
+            </button>
+            <button 
+              onClick={handleSave}
+              className="flex items-center gap-2 px-6 py-3 bg-zinc-900 text-white rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg"
+            >
+              <Save size={18} />
+              Save Changes
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -24,12 +72,9 @@ export default function Profile() {
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white p-8 rounded-[2.5rem] border border-zinc-100 shadow-sm text-center">
             <div className="relative inline-block mb-6">
-              <div className="w-32 h-32 rounded-[2.5rem] bg-zinc-100 flex items-center justify-center text-zinc-400 font-black text-4xl">
+              <div className="w-32 h-32 rounded-[2.5rem] bg-zinc-100 flex items-center justify-center text-zinc-400 font-black text-4xl uppercase">
                 {user.name.charAt(0)}
               </div>
-              <button className="absolute bottom-0 right-0 p-3 bg-zinc-900 text-white rounded-2xl shadow-lg hover:bg-zinc-800 transition-all">
-                <Edit3 size={18} />
-              </button>
             </div>
             <h2 className="text-2xl font-black text-zinc-900">{user.name}</h2>
             <p className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-8">{user.role} • {user.branch}</p>
@@ -58,7 +103,7 @@ export default function Profile() {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Department</p>
-                  <p className="font-bold text-sm">Human Resources</p>
+                  <p className="font-bold text-sm">Operations</p>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -90,21 +135,48 @@ export default function Profile() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Full Name</label>
-                <div className="px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100">
-                  {user.name}
-                </div>
+                {isEditing ? (
+                  <input 
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                  />
+                ) : (
+                  <div className="px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100">
+                    {user.name}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Email Address</label>
-                <div className="px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100">
-                  {user.email}
-                </div>
+                {isEditing ? (
+                  <input 
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                  />
+                ) : (
+                  <div className="px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100">
+                    {user.email}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Phone Number</label>
-                <div className="px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100">
-                  +94 77 123 4567
-                </div>
+                {isEditing ? (
+                  <input 
+                    type="text"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100 focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                  />
+                ) : (
+                  <div className="px-5 py-4 bg-zinc-50 rounded-2xl text-sm font-bold text-zinc-700 border border-zinc-100">
+                    {formData.phone}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest ml-1">Employee ID</label>

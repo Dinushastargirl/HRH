@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, XCircle, Clock, Filter, 
   Search, Calendar, User, MessageSquare,
-  AlertCircle, Check, X
+  AlertCircle, Check, X, Camera, Plus
 } from 'lucide-react';
 import { LeaveRequest, UserRole } from '../types';
 import { mockService } from '../mockService';
@@ -63,9 +63,20 @@ export default function Leaves() {
 
   return (
     <div className="space-y-8 pb-12">
-      <div>
-        <h1 className="text-3xl font-black text-zinc-900">Leave Requests</h1>
-        <p className="text-zinc-500 font-medium">Manage and track time-off applications</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black text-zinc-900">Leave Requests</h1>
+          <p className="text-zinc-500 font-medium">Manage and track time-off applications</p>
+        </div>
+        {user?.role === 'employee' && (
+          <button 
+            onClick={() => window.location.href = '/'} // Redirect to dashboard where modal is
+            className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-all shadow-lg shadow-orange-100"
+          >
+            <Plus size={18} />
+            New Request
+          </button>
+        )}
       </div>
 
       {/* Stats Summary */}
@@ -160,6 +171,25 @@ export default function Leaves() {
                     <p className="text-xs font-medium text-zinc-600 line-clamp-1">{req.reason}</p>
                   </div>
                 </div>
+
+                {req.imageUrl && (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-400">
+                      <Camera size={18} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Attachment</p>
+                      <a 
+                        href={req.imageUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-xs font-bold text-orange-500 hover:underline"
+                      >
+                        View Image
+                      </a>
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3">
                   <div className={cn(

@@ -1,8 +1,11 @@
+import { initializeApp, getApp, getApps } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import {
   collection, doc, getDocs, getDoc, addDoc, setDoc, updateDoc,
   deleteDoc, query, where, orderBy, serverTimestamp, Timestamp
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import firebaseConfig from '../../firebase-applet-config.json';
 import { UserProfile, AttendanceRecord, LeaveRequest, Task, PayrollRecord, PerformanceRecord } from '../types';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -36,6 +39,35 @@ export async function saveEmployee(emp: UserProfile): Promise<void> {
 
 export async function deleteEmployee(uid: string): Promise<void> {
   await deleteDoc(doc(db, 'users', uid));
+}
+
+export async function registerFullEmployee(emp: UserProfile, password?: string): Promise<void> {
+  // 1. Create a secondary app instance to register the user without logging out the admin
+  const secondaryAppName = `secondary-app-${Date.now()}`;
+  const secondaryApp = getApps().find(a => a.name === secondaryAppName) 
+    || initializeApp(firebaseConfig, secondaryAppName);
+  const secondaryAuth = getAuth(secondaryApp);
+
+  const finalPassword = password || 'employee123';
+  
+  try {
+    // 2. Create the Auth User
+    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, emp.email, finalPassword);
+    const newUid = userCredential.user.uid;
+
+    // 3. Save the Profile to Firestore with the new UID
+    const { uid, ...data } = emp;
+    await setDoc(doc(db, 'users', newUid), {
+      ...data,
+      uid: newUid, // Ensure UID matches Auth UID
+      updatedAt: serverTimestamp(),
+    });
+
+    // 4. Sign out of the secondary app and clean up
+    await signOut(secondaryAuth);
+  } catch (error: any) {
+    throw new Error(error.message || 'Failed to create login account');
+  }
 }
 
 export async function addIncentiveDeduction(

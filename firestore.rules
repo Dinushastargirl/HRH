@@ -33,9 +33,10 @@ service cloud.firestore {
     }
 
     function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'username', 'name', 'email', 'role', 'salary', 'leaveQuotas', 'usedLeaves', 'performanceScore', 'createdAt']) &&
+      return data.keys().hasAll(['uid', 'username', 'name', 'email', 'role', 'salaryA', 'salaryB', 'leaveQuotas', 'usedLeaves', 'performanceScore', 'createdAt']) &&
              data.role in ['owner', 'hr', 'employee', 'super'] &&
-             data.salary is number &&
+             data.salaryA is number &&
+             data.salaryB is number &&
              data.performanceScore is number;
     }
 
@@ -43,11 +44,11 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isHR() && isValidUser(request.resource.data) && (request.resource.data.role != 'owner' || isOwner());
       allow update: if isAuthenticated() && (
-        isOwner() || 
+        isSuper() || 
         (isHR() && resource.data.role == 'employee' && request.resource.data.role == 'employee') ||
         (isEmployee(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'phone', 'photoUrl', 'status', 'department', 'mustResetPassword', 'updatedAt']))
       );
-      allow delete: if isOwner();
+      allow delete: if isSuper();
     }
 
     match /leaveRequests/{requestId} {

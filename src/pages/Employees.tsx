@@ -26,6 +26,7 @@ export default function Employees() {
   const [selectedEmpForIncentive, setSelectedEmpForIncentive] = useState<UserProfile | null>(null);
   const [incentiveType, setIncentiveType] = useState<'incentive' | 'deduction'>('incentive');
   const [incentiveAmount, setIncentiveAmount] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -354,45 +355,59 @@ export default function Employees() {
               <form 
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  const formData = new FormData(e.currentTarget);
-                  const data = Object.fromEntries(formData.entries()) as any;
-                  
-                  const salaryA = Number(data.salaryA);
-                  const salaryB = Number(data.salaryB);
-                  const epf = Number(data.epf);
-                  const advances = Number(data.advances);
-                  const cover = Number(data.cover);
-                  const intensive = Number(data.intensive);
-                  const travelling = Number(data.travelling);
+                  setIsSaving(true);
+                  try {
+                    const formData = new FormData(e.currentTarget);
+                    const data = Object.fromEntries(formData.entries()) as any;
+                    
+                    const salaryA = Number(data.salaryA) || 0;
+                    const salaryB = Number(data.salaryB) || 0;
+                    const epf = Number(data.epf) || 0;
+                    const advances = Number(data.advances) || 0;
+                    const cover = Number(data.cover) || 0;
+                    const intensive = Number(data.intensive) || 0;
+                    const travelling = Number(data.travelling) || 0;
 
-                  const newEmp: UserProfile = {
-                    uid: editingEmp?.uid || `emp-${Date.now()}`,
-                    name: data.name,
-                    email: data.email,
-                    username: data.username || data.name.toLowerCase().replace(/\s+/g, '.'),
-                    password: data.password || undefined,
-                    role: data.role,
-                    branch: data.branch,
-                    joinDate: data.joinDate,
-                    salaryA,
-                    salaryB,
-                    epf,
-                    advances,
-                    cover,
-                    intensive,
-                    travelling,
-                    net: salaryA + salaryB + intensive + travelling - epf - advances - cover,
-                    performanceScore: editingEmp?.performanceScore || 0,
-                    leaveQuotas: editingEmp?.leaveQuotas || { annual: 20, sick: 10, casual: 7, short: 2 },
-                    usedLeaves: editingEmp?.usedLeaves || { annual: 0, sick: 0, casual: 0, short: 0 },
-                  };
+                    const newEmp: UserProfile = {
+                      uid: editingEmp?.uid || `emp-${Date.now()}`,
+                      name: data.name,
+                      email: data.email,
+                      username: data.username || data.name.toLowerCase().replace(/\s+/g, '.'),
+                      password: data.password || undefined,
+                      role: data.role,
+                      branch: data.branch,
+                      joinDate: data.joinDate,
+                      salaryA,
+                      salaryB,
+                      epf,
+                      advances,
+                      cover,
+                      intensive,
+                      travelling,
+                      net: salaryA + salaryB + intensive + travelling - epf - advances - cover,
+                      performanceScore: editingEmp?.performanceScore || 0,
+                      leaveQuotas: editingEmp?.leaveQuotas || { annual: 20, sick: 10, casual: 7, short: 2 },
+                      usedLeaves: editingEmp?.usedLeaves || { annual: 0, sick: 0, casual: 0, short: 0 },
+                    };
 
-                  await firestoreService.saveEmployee(newEmp);
-                  toast.success(editingEmp ? 'Employee updated' : 'Employee added with login credentials');
-                  setIsModalOpen(false);
-                  loadEmployees();
+                    if (editingEmp) {
+                      await firestoreService.saveEmployee(newEmp);
+                      toast.success('Employee updated successfully');
+                    } else {
+                      await firestoreService.registerFullEmployee(newEmp, data.password);
+                      toast.success('New employee registered with login credentials');
+                    }
+                    setIsModalOpen(false);
+                    loadEmployees();
+                  } catch (error: any) {
+                    console.error('Error saving employee:', error);
+                    toast.error(error.message || 'Failed to save employee profile');
+                  } finally {
+                    setIsSaving(false);
+                  }
                 }}
-                className="p-8 space-y-8 max-h-[70vh] overflow-y-auto"
+                className="p-8 space-y-8 max-h-[75vh] overflow-y-auto pr-4 custom-scrollbar"
+                key={editingEmp?.uid || 'new'}
               >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Basic Info */}
@@ -622,8 +637,16 @@ export default function Employees() {
                 </div>
                 <div className="pt-8 flex gap-4 border-t border-zinc-50">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-6 py-4 rounded-2xl border border-zinc-200 text-zinc-600 font-bold hover:bg-zinc-50 transition-all">Cancel</button>
-                  <button type="submit" className="flex-1 bg-zinc-900 text-white px-6 py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-100">
-                    {editingEmp ? 'Update Employee' : 'Register Employee'}
+                  <button 
+                    type="submit" 
+                    disabled={isSaving}
+                    className="flex-1 bg-zinc-900 text-white px-6 py-4 rounded-2xl font-bold hover:bg-zinc-800 transition-all shadow-lg shadow-zinc-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSaving ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      editingEmp ? 'Update Employee' : 'Register Employee'
+                    )}
                   </button>
                 </div>
               </form>

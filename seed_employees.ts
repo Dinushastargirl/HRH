@@ -80,7 +80,7 @@ async function seed() {
     { name: 'W.A. Chandima Dilrukishi', email: 'chandima.dilrukishi@hrpulse.com', password: 'chandima123', branch: 'Kottawa', salaryA: 28000, salaryB: 30000, net: 30600 },
     { name: 'Rasika Priyangani', email: 'rasika.priyangani@hrpulse.com', password: 'rasika123', branch: 'Kottawa', salaryA: 34000, salaryB: 30000, net: 36600 },
     { name: 'A.M.N. Sanjana', email: 'am.n.sanjana@hrpulse.com', password: 'amn123', branch: 'Office', salaryA: 29750, salaryB: 30000, net: 35350 },
-    { name: 'R.P. Ratnayake', email: 'rp.ratnayake@hrpulse.com', password: 'ratnayake123', branch: 'Office', salaryA: 27500, salaryB: 0, net: 27500 },
+    { name: 'R.P. Ratnayake', email: 'rp.ratnayake@hrpulse.com', password: 'rp123', branch: 'Office', salaryA: 27500, salaryB: 0, net: 27500 },
     { name: 'Nihal Malawana', email: 'nihal.malawana@hrpulse.com', password: 'nihal123', branch: 'Office', salaryA: 34500, salaryB: 0, net: 45280 },
     { name: 'Syamalie Udumulla', email: 'syamalie.udumulla@hrpulse.com', password: 'syamalie123', branch: 'Office', salaryA: 11000, salaryB: 0, net: 11000 },
     { name: 'Nishanthi Kuruppu', email: 'nishanthi.kuruppu@hrpulse.com', password: 'nishanthi123', branch: 'Office', salaryA: 33200, salaryB: 30000, net: 40800 },
@@ -96,33 +96,38 @@ async function seed() {
     { name: 'Dulki Isanka', email: 'dulki.isanka@hrpulse.com', password: 'dulki123', branch: 'W4', salaryA: 27000, salaryB: 30000, net: 26100 },
   ];
 
+  console.log('\n👥 Seeding company employees...');
   for (const emp of employeeData) {
-    const uid = await createOrGetUser(emp.email, emp.password);
-    
-    await db.collection('users').doc(uid).set({
-      uid,
-      name: emp.name,
-      email: emp.email,
-      username: emp.email.split('@')[0],
-      role: 'employee',
-      branch: emp.branch,
-      joinDate: new Date().toISOString().split('T')[0],
-      salaryA: emp.salaryA,
-      salaryB: emp.salaryB,
-      epf: Math.round(emp.salaryA * 0.08),
-      advances: 0,
-      cover: 0,
-      intensive: 0,
-      travelling: 0,
-      net: emp.net,
-      performanceScore: 85,
-      leaveQuotas: { annual: 20, sick: 10, casual: 7, short: 2 },
-      usedLeaves: { annual: 0, sick: 0, casual: 0, short: 0 },
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+    try {
+      const uid = await createOrGetUser(emp.email, emp.password);
+      
+      await db.collection('users').doc(uid).set({
+        uid,
+        name: emp.name,
+        email: emp.email,
+        username: emp.email.split('@')[0],
+        role: 'employee',
+        branch: emp.branch,
+        joinDate: new Date().toISOString().split('T')[0],
+        salaryA: emp.salaryA,
+        salaryB: emp.salaryB,
+        epf: Math.round(emp.salaryA * 0.08),
+        advances: 0,
+        cover: 0,
+        intensive: 0,
+        travelling: 0,
+        net: emp.net,
+        performanceScore: 85,
+        leaveQuotas: { annual: 20, sick: 10, casual: 7, short: 2 },
+        usedLeaves: { annual: 0, sick: 0, casual: 0, short: 0 },
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    } catch (err: any) {
+      console.error(`  ❌ Failed for ${emp.email}: ${err.message}`);
+    }
   }
 
-  console.log('\n✅ Seed successful for all accounts.\n');
+  console.log('\n✅ Seed process finished.\n');
   console.log('Admins:');
   ADMINS.forEach(a => console.log(`   ${a.email}  →  ${a.password}`));
   console.log('\nEmployees:');

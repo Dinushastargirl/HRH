@@ -5,7 +5,10 @@ import {
   Download, Upload, UserPlus, XCircle, DollarSign,
   ChevronLeft, ChevronRight, FileSpreadsheet
 } from 'lucide-react';
+import { onSnapshot, collection } from 'firebase/firestore';
+import { db } from '../firebase';
 import { UserProfile, UserRole } from '../types';
+import * as firestoreService from '../services/firestoreService';
 import { mockService } from '../mockService';
 import { useAuth } from '../hooks/useAuth';
 import { cn, formatDate } from '../lib/utils';
@@ -31,11 +34,15 @@ export default function Employees() {
   const canAccess = user && ['super', 'owner', 'hr'].includes(user.role);
 
   useEffect(() => {
-    loadEmployees();
+    // Real-time Employees Subscription
+    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
+      setEmployees(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
+    });
+    return () => unsub();
   }, []);
 
-  const loadEmployees = () => {
-    setEmployees(mockService.getEmployees());
+  const loadEmployees = async () => {
+    // Handled by onSnapshot
   };
 
   const branches = ['All', ...new Set(employees.map(e => e.branch))];
@@ -54,19 +61,19 @@ export default function Employees() {
     currentPage * itemsPerPage
   );
 
-  const handleDelete = (uid: string) => {
+  const handleDelete = async (uid: string) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
-      mockService.deleteEmployee(uid);
+      await firestoreService.deleteEmployee(uid);
       toast.success('Employee deleted');
       loadEmployees();
     }
   };
 
-  const handleIncentiveSubmit = (e: React.FormEvent) => {
+  const handleIncentiveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEmpForIncentive || !incentiveAmount) return;
 
-    const success = mockService.addIncentiveDeduction(
+    const success = await firestoreService.addIncentiveDeduction(
       selectedEmpForIncentive.uid, 
       Number(incentiveAmount), 
       incentiveType
@@ -160,7 +167,7 @@ export default function Employees() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-[2rem] border border-zinc-100 shadow-sm flex flex-col md:flex-row gap-4">
+      <div className="bg-white p-4 rounded-4xl border border-zinc-100 shadow-sm flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
           <input 
@@ -345,7 +352,7 @@ export default function Employees() {
                 </button>
               </div>
               <form 
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   const formData = new FormData(e.currentTarget);
                   const data = Object.fromEntries(formData.entries()) as any;
@@ -380,7 +387,7 @@ export default function Employees() {
                     usedLeaves: editingEmp?.usedLeaves || { annual: 0, sick: 0, casual: 0, short: 0 },
                   };
 
-                  mockService.saveEmployee(newEmp);
+                  await firestoreService.saveEmployee(newEmp);
                   toast.success(editingEmp ? 'Employee updated' : 'Employee added with login credentials');
                   setIsModalOpen(false);
                   loadEmployees();

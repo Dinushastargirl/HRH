@@ -5,23 +5,27 @@ service cloud.firestore {
     function isAuthenticated() { return request.auth != null; }
     
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
     }
     
     function isOwner() {
+      let userData = getUserData();
       return isAuthenticated() && (
-        getUserData().role == 'owner' || 
+        (userData != null && userData.role == 'owner') || 
         request.auth.token.email == 'dinudinu4927@gmail.com' ||
         request.auth.token.email == 'owner@hrpulse.com'
       );
     }
     
     function isSuper() {
-      return isAuthenticated() && (getUserData().role == 'super' || isOwner());
+      let userData = getUserData();
+      return isAuthenticated() && ((userData != null && userData.role == 'super') || isOwner());
     }
     
     function isHR() {
-      return isAuthenticated() && (getUserData().role == 'hr' || isSuper() || isOwner());
+      let userData = getUserData();
+      return isAuthenticated() && ((userData != null && userData.role == 'hr') || isSuper() || isOwner());
     }
     
     function isEmployee(userId) {
@@ -41,7 +45,7 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (
         isOwner() || 
         (isHR() && resource.data.role == 'employee' && request.resource.data.role == 'employee') ||
-        (isEmployee(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'profilePic', 'mustResetPassword']))
+        (isEmployee(userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'phone', 'photoUrl', 'status', 'department', 'mustResetPassword', 'updatedAt']))
       );
       allow delete: if isOwner();
     }

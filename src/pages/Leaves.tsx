@@ -5,9 +5,12 @@ import {
   AlertCircle, Check, X, Camera, Plus
 } from 'lucide-react';
 import { LeaveRequest, UserRole } from '../types';
+import * as firestoreService from '../services/firestoreService';
 import { mockService } from '../mockService';
 import { useAuth } from '../hooks/useAuth';
 import { cn, formatDate } from '../lib/utils';
+import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { db } from '../firebase';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -16,48 +19,112 @@ export default function Leaves() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [filter, setFilter] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
   const [search, setSearch] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  
+  // Form state
+  const [leaveType, setLeaveType] = useState<LeaveType>('Annual');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [reason, setReason] = useState('');
+  const [leaveImage, setLeaveImage] = useState<string | null>(null);
 
   useEffect(() => {
-    loadLeaves();
+    let q;
+    if (user?.role === 'hr' || user?.role === 'owner' || user?.role === 'super') {
+      q = query(collection(db, 'leaveRequests'), orderBy('createdAt', 'desc'));
+    } else if (user?.uid) {
+      q = query(collection(db, 'leaveRequests'), where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
+    } else {
+      return;
+    }
+
+    const unsub = onSnapshot(q, (snap) => {
+      setLeaves(snap.docs.map(d => ({ id: d.id, ...d.data() } as LeaveRequest)));
+    });
+
+    return () => unsub();
   }, [user]);
 
-  const loadLeaves = () => {
-    // If HR or Owner, see all. If employee, see own.
-    if (user?.role === 'hr' || user?.role === 'owner' || user?.role === 'super') {
-      setLeaves(mockService.getLeaves());
-    } else {
-      setLeaves(mockService.getLeaves(user?.uid));
+  const handleSubmitLeave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    
+    // Quick validation
+    const typeKey = leaveType.toLowerCase() as keyof typeof user.leaveQuotas;
+    const remaining = ((user.leaveQuotas as any)?.[typeKey] || 0) - ((user.usedLeaves as any)?.[typeKey] || 0);
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffDays = Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    if (diffDays > remaining) {
+      toast.error(`Insufficient ${leaveType} leave balance.`);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const leaveData: any = {
+        userId: user.uid,
+        userName: user.name,
+        userRole: user.role,
+        leaveType,
+        reason,
+        startDate: startDate,
+        endDate: endDate,
+        status: 'Pending',
+        createdAt: new Date().toISOString(),
+      };
+      if (leaveImage) leaveData.imageUrl = leaveImage;
+
+      await firestoreService.saveLeave(leaveData);
+      
+      toast.success('Leave request submitted successfully!');
+      setIsModalOpen(false);
+      setReason('');
+      setStartDate('');
+      setEndDate('');
+      setLeaveImage(null);
+    } catch (error: any) {
+      console.error('Submission error:', error);
+      toast.error(error.message || 'Failed to submit leave. Check your permissions.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleAction = (id: string, status: 'Approved' | 'Rejected') => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => setLeaveImage(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAction = async (id: string, status: 'Approved' | 'Rejected') => {
     if (!user) return;
-    mockService.updateLeave(id, status, user.name);
-    toast.success(`Leave request ${status.toLowerCase()}`);
-    loadLeaves();
+    try {
+      await firestoreService.updateLeave(id, status, user.name);
+      toast.success(`Leave request ${status.toLowerCase()}`);
+    } catch (err) {
+      toast.error('Failed to update request');
+    }
   };
 
   const filteredLeaves = leaves.filter(l => {
     const matchesFilter = filter === 'All' || l.status === filter;
-    const matchesSearch = l.userName.toLowerCase().includes(search.toLowerCase()) || 
-                         l.leaveType.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (l.userName || '').toLowerCase().includes(search.toLowerCase()) || 
+                         (l.leaveType || '').toLowerCase().includes(search.toLowerCase());
     return matchesFilter && matchesSearch;
-  }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  });
 
   const canApprove = (req: LeaveRequest) => {
     if (!user) return false;
-    // OWNER approves Super Admin & HR
-    if (user.role === 'owner') {
-      return req.userRole === 'super' || req.userRole === 'hr';
-    }
-    // HR approves Employees
-    if (user.role === 'hr') {
-      return req.userRole === 'employee';
-    }
-    // SUPER ADMIN approves Employees (as fallback)
-    if (user.role === 'super') {
-      return req.userRole === 'employee';
-    }
+    if (user.role === 'owner') return req.userRole === 'super' || req.userRole === 'hr';
+    if (user.role === 'hr') return req.userRole === 'employee';
+    if (user.role === 'super') return req.userRole === 'employee';
     return false;
   };
 
@@ -65,50 +132,69 @@ export default function Leaves() {
     <div className="space-y-8 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-zinc-900">Leave Requests</h1>
-          <p className="text-zinc-500 font-medium">Manage and track time-off applications</p>
+          <h1 className="text-3xl font-black text-zinc-900">Leave Management</h1>
+          <p className="text-zinc-500 font-medium tracking-tight">Track, apply, and approve time-off requests</p>
         </div>
         {user?.role === 'employee' && (
           <button 
-            onClick={() => window.location.href = '/'} // Redirect to dashboard where modal is
-            className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-all shadow-lg shadow-orange-100"
+            onClick={() => setIsModalOpen(true)}
+            className="bg-orange-500 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-orange-600 transition-all shadow-xl shadow-orange-100"
           >
-            <Plus size={18} />
-            New Request
+            <Plus size={20} />
+            Apply for Leave
           </button>
         )}
       </div>
 
-      {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Requests', value: leaves.length, icon: Calendar, color: 'text-zinc-600', bg: 'bg-zinc-100' },
-          { label: 'Pending', value: leaves.filter(l => l.status === 'Pending').length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
-          { label: 'Approved', value: leaves.filter(l => l.status === 'Approved').length, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-100' },
-          { label: 'Rejected', value: leaves.filter(l => l.status === 'Rejected').length, icon: XCircle, color: 'text-red-600', bg: 'bg-red-100' },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", stat.bg, stat.color)}>
-                <stat.icon size={18} />
-              </div>
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{stat.label}</span>
+      {/* 📊 My Balance Summary (Strategic for Employees) */}
+      {user?.role === 'employee' && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Annual', val: (user.leaveQuotas?.annual || 0) - (user.usedLeaves?.annual || 0), color: 'text-orange-600', bg: 'bg-orange-50' },
+            { label: 'Sick', val: (user.leaveQuotas?.sick || 0) - (user.usedLeaves?.sick || 0), color: 'text-red-600', bg: 'bg-red-50' },
+            { label: 'Casual', val: (user.leaveQuotas?.casual || 0) - (user.usedLeaves?.casual || 0), color: 'text-blue-600', bg: 'bg-blue-50' },
+            { label: 'Short', val: (user.leaveQuotas?.short || 0) - (user.usedLeaves?.short || 0), color: 'text-green-600', bg: 'bg-green-50' },
+          ].map(q => (
+            <div key={q.label} className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">{q.label} Balance</p>
+              <p className={cn("text-2xl font-black", q.color)}>{q.val} Days</p>
             </div>
-            <p className="text-2xl font-black text-zinc-900">{stat.value}</p>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* Global Stats Summary for Managers */}
+      {(user?.role === 'hr' || user?.role === 'owner' || user?.role === 'super') && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Pending', value: leaves.filter(l => l.status === 'Pending').length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-100' },
+            { label: 'Total Leaves', value: leaves.length, icon: Calendar, color: 'text-zinc-600', bg: 'bg-zinc-100' },
+            { label: 'Approved', value: leaves.filter(l => l.status === 'Approved').length, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-100' },
+            { label: 'Rejected', value: leaves.filter(l => l.status === 'Rejected').length, icon: XCircle, color: 'text-red-600', bg: 'bg-red-100' },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
+              <div className="flex items-center gap-3 mb-2">
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", stat.bg, stat.color)}>
+                  <stat.icon size={18} />
+                </div>
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{stat.label}</span>
+              </div>
+              <p className="text-2xl font-black text-zinc-900">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-[2rem] border border-zinc-100 shadow-sm flex flex-col md:flex-row gap-4">
+      <div className="bg-white p-4 rounded-4xl border border-zinc-100 shadow-sm flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
           <input 
             type="text" 
-            placeholder="Search by employee or leave type..." 
+            placeholder="Filter list..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+            className="w-full pl-12 pr-4 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm focus:ring-2 focus:ring-zinc-900 outline-none transition-all"
           />
         </div>
         <div className="flex gap-2">
@@ -139,11 +225,11 @@ export default function Leaves() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
               key={req.id}
-              className="bg-white p-6 rounded-[2.5rem] border border-zinc-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center gap-6"
+              className="bg-white p-6 rounded-4xl border border-zinc-100 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center gap-6"
             >
               <div className="flex items-center gap-4 min-w-[200px]">
-                <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-500 font-black">
-                  {req.userName.charAt(0)}
+                <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-900 font-black text-xl shadow-inner border border-zinc-100">
+                  {req.userName?.charAt(0)}
                 </div>
                 <div>
                   <h3 className="font-bold text-zinc-900">{req.userName}</h3>
@@ -152,46 +238,27 @@ export default function Leaves() {
               </div>
 
               <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600">
                     <Calendar size={18} />
                   </div>
                   <div>
                     <p className="text-xs font-black text-zinc-900">{req.leaveType}</p>
-                    <p className="text-[10px] font-bold text-zinc-400">{formatDate(req.startDate)} - {formatDate(req.endDate)}</p>
+                    <p className="text-[10px] font-bold text-zinc-500">{formatDate(req.startDate)} - {formatDate(req.endDate)}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-400">
                     <MessageSquare size={18} />
                   </div>
                   <div>
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Reason</p>
-                    <p className="text-xs font-medium text-zinc-600 line-clamp-1">{req.reason}</p>
+                    <p className="text-xs font-medium text-zinc-700 line-clamp-1 italic">"{req.reason}"</p>
                   </div>
                 </div>
 
-                {req.imageUrl && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-zinc-50 flex items-center justify-center text-zinc-400">
-                      <Camera size={18} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">Attachment</p>
-                      <a 
-                        href={req.imageUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-xs font-bold text-orange-500 hover:underline"
-                      >
-                        View Image
-                      </a>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-4">
                   <div className={cn(
                     "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border",
                     req.status === 'Approved' ? "bg-green-50 text-green-700 border-green-100" :
@@ -200,10 +267,21 @@ export default function Leaves() {
                   )}>
                     {req.status}
                   </div>
+                  {req.imageUrl && (
+                    <a 
+                      href={req.imageUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="p-2 bg-zinc-50 hover:bg-zinc-100 rounded-xl text-zinc-400 hover:text-orange-500 transition-all"
+                      title="View Attachment"
+                    >
+                      <Camera size={20} />
+                    </a>
+                  )}
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 min-w-[120px] justify-end">
                 {req.status === 'Pending' && canApprove(req) ? (
                   <>
                     <button 
@@ -214,36 +292,125 @@ export default function Leaves() {
                     </button>
                     <button 
                       onClick={() => handleAction(req.id!, 'Rejected')}
-                      className="p-3 bg-red-500 text-white rounded-2xl hover:bg-red-600 transition-all shadow-lg shadow-red-100"
+                      className="p-3 bg-white text-red-500 border border-red-500/30 rounded-2xl hover:bg-red-50 transition-all"
                     >
                       <X size={20} />
                     </button>
                   </>
                 ) : req.status === 'Pending' && !canApprove(req) ? (
                   <div className="flex items-center gap-2 text-zinc-400 px-4 py-2 bg-zinc-50 rounded-xl border border-zinc-100">
-                    <AlertCircle size={16} />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Awaiting Approval</span>
+                    <Clock size={16} />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Awaiting HR</span>
                   </div>
                 ) : (
-                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                    Processed by {req.approvedBy}
+                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">
+                    Processed by<br/>
+                    <span className="text-zinc-900">{req.approvedBy}</span>
                   </div>
                 )}
               </div>
             </motion.div>
           ))}
         </AnimatePresence>
-        
-        {filteredLeaves.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-[2.5rem] border border-zinc-100">
-            <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mx-auto mb-4 text-zinc-300">
-              <Calendar size={32} />
-            </div>
-            <h3 className="text-lg font-bold text-zinc-900">No requests found</h3>
-            <p className="text-zinc-500 font-medium">Try adjusting your filters or search terms.</p>
+      </div>
+
+      {/* 📝 native Apply Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="absolute inset-0 bg-zinc-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-4xl shadow-2xl border border-zinc-100 overflow-hidden"
+            >
+              <div className="p-8 border-b border-zinc-50 flex items-center justify-between bg-zinc-50/50">
+                <h2 className="text-2xl font-black text-zinc-900">Request Time Off</h2>
+                <button onClick={() => setIsModalOpen(false)} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-xl transition-all">
+                  <XCircle size={24} />
+                </button>
+              </div>
+              <form onSubmit={handleSubmitLeave} className="p-8 space-y-6">
+                <div>
+                  <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Type of Leave</label>
+                  <select
+                    value={leaveType}
+                    onChange={(e) => setLeaveType(e.target.value as any)}
+                    className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
+                  >
+                    <option value="Annual">Annual Leave</option>
+                    <option value="Sick">Sick Leave</option>
+                    <option value="Casual">Casual Leave</option>
+                    <option value="Short">Short Leave</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Start Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">End Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Reason</label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all resize-none font-medium"
+                    placeholder="Briefly describe your reason..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Attachment (Optional)</label>
+                  <label className="flex items-center justify-center gap-2 w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-dashed border-zinc-200 hover:border-orange-300 hover:bg-orange-50 transition-all cursor-pointer group">
+                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                    <Camera size={20} className="text-zinc-400 group-hover:text-orange-500" />
+                    <span className="text-sm font-bold text-zinc-500 group-hover:text-orange-600">
+                      {leaveImage ? 'Image Attached ✅' : 'Upload Medical/Document'}
+                    </span>
+                  </label>
+                </div>
+                <div className="pt-4 flex gap-4">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-1 bg-orange-500 text-white px-6 py-4 rounded-2xl font-black hover:bg-orange-600 transition-all shadow-xl shadow-orange-100 disabled:opacity-50"
+                  >
+                    {submitting ? 'Submitting...' : 'Confirm Request'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
           </div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
+
+// ─── types for internal use ──────────────────────────────────────────────────
+type LeaveType = 'Annual' | 'Sick' | 'Casual' | 'Short';

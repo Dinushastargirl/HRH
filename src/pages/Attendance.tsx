@@ -4,8 +4,11 @@ import {
   UserCheck, Timer, Search, Filter, Download
 } from 'lucide-react';
 import { AttendanceRecord, UserProfile } from '../types';
-import { mockService } from '../mockService';
+import * as firestoreService from '../services/firestoreService';
+import { mockService } from '../mockService'; // Keeping for reference/fallback
 import { useAuth } from '../hooks/useAuth';
+import { db } from '../firebase';
+import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
 import { cn, formatDate } from '../lib/utils';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
@@ -18,18 +21,35 @@ export default function Attendance() {
   const [filterBranch, setFilterBranch] = useState('All');
 
   useEffect(() => {
-    loadData();
-  }, [user]);
+    if (!user) return;
 
-  const loadData = () => {
-    const allEmps = mockService.getEmployees();
-    setEmployees(allEmps);
-    
-    if (user?.role === 'hr' || user?.role === 'owner' || user?.role === 'super') {
-      setRecords(mockService.getAttendance());
-    } else {
-      setRecords(mockService.getAttendance(user?.uid));
-    }
+    const isManagement = user.role === 'hr' || user.role === 'owner' || user.role === 'super';
+
+    // 1. Real-time Employees (needed for names)
+    const empsUnsub = onSnapshot(collection(db, 'users'), (snap) => {
+      setEmployees(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
+    });
+
+    // 2. Real-time Attendance
+    const attendanceQuery = isManagement 
+      ? query(collection(db, 'attendance'), orderBy('date', 'desc'))
+      : query(collection(db, 'attendance'), where('userId', '==', user.uid), orderBy('date', 'desc'));
+
+    const attendanceUnsub = onSnapshot(attendanceQuery, (snap) => {
+      setRecords(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
+    }, (err) => {
+      console.error('Attendance listener error:', err);
+      toast.error('Failed to sync attendance');
+    });
+
+    return () => {
+      empsUnsub();
+      attendanceUnsub();
+    };
+  }, [user?.uid, user?.role]);
+
+  const loadData = async () => {
+    // Handled by onSnapshot
   };
 
   const branches = ['All', ...new Set(employees.map(e => e.branch))];
@@ -54,10 +74,9 @@ export default function Attendance() {
           {user?.role === 'employee' && (
             <div className="flex gap-2">
               <button 
-                onClick={() => {
-                  if (mockService.checkIn(user.uid)) {
+                onClick={async () => {
+                  if (await firestoreService.checkIn(user.uid)) {
                     toast.success('Checked in!');
-                    loadData();
                   } else {
                     toast.error('Already checked in today');
                   }
@@ -68,10 +87,9 @@ export default function Attendance() {
                 Check In
               </button>
               <button 
-                onClick={() => {
-                  if (mockService.checkOut(user.uid)) {
+                onClick={async () => {
+                  if (await firestoreService.checkOut(user.uid)) {
                     toast.success('Checked out!');
-                    loadData();
                   } else {
                     toast.error('No active shift found');
                   }
@@ -123,7 +141,7 @@ export default function Attendance() {
 
       {/* Filters (Only for Admin/HR) */}
       {(user?.role !== 'employee') && (
-        <div className="bg-white p-4 rounded-[2rem] border border-zinc-100 shadow-sm flex flex-col md:flex-row gap-4">
+        <div className="bg-white p-4 rounded-4xl border border-zinc-100 shadow-sm flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
             <input 
@@ -145,7 +163,7 @@ export default function Attendance() {
       )}
 
       {/* Attendance Table */}
-      <div className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-4xl border border-zinc-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>

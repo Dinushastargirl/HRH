@@ -4,7 +4,7 @@ import {
   Filter, Edit2, Check, X, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import { PayrollRecord, UserProfile } from '../types';
-import { mockService } from '../mockService';
+import * as firestoreService from '../services/firestoreService';
 import { useAuth } from '../hooks/useAuth';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
@@ -15,20 +15,26 @@ export default function ManagePayroll() {
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<PayrollRecord>>({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  const loadData = () => {
-    setPayrolls(mockService.getPayroll());
+  const loadData = async () => {
+    const data = await firestoreService.getPayroll();
+    setPayrolls(data);
+    setLoading(false);
   };
 
-  const filteredPayrolls = payrolls.filter(p => 
-    p.userName.toLowerCase().includes(search.toLowerCase()) && p.status === 'Pending'
-  );
+  const filteredPayrolls = payrolls.filter(p => {
+    const matchesSearch = p.userName.toLowerCase().includes(search.toLowerCase()) && p.status === 'Pending';
+    // HR cannot see their own payroll in management view
+    if (user?.role === 'hr' && p.userId === user.uid) return false;
+    return matchesSearch;
+  });
 
-  const handleSave = (id: string) => {
+  const handleSave = async (id: string) => {
     const original = payrolls.find(p => p.id === id);
     if (!original) return;
 
@@ -39,7 +45,7 @@ export default function ManagePayroll() {
     // Recalculate Net: Salary A + Salary B + Intensive + Travelling - EPF - Advances - Cover
     const netSalary = (original.salaryA || 0) + (original.salaryB || 0) + intensive + travelling - (original.epf || 0) - advances - (original.cover || 0);
 
-    mockService.updatePayroll(id, {
+    await firestoreService.updatePayroll(id, {
       ...editData,
       netSalary: isNaN(netSalary) ? 0 : netSalary
     });
@@ -50,8 +56,8 @@ export default function ManagePayroll() {
     loadData();
   };
 
-  const handleMarkAsPaid = (id: string) => {
-    mockService.updatePayroll(id, { status: 'Paid' });
+  const handleMarkAsPaid = async (id: string) => {
+    await firestoreService.updatePayroll(id, { status: 'Paid' });
     toast.success('Marked as paid');
     loadData();
   };
@@ -64,7 +70,7 @@ export default function ManagePayroll() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-[2rem] border border-zinc-100 shadow-sm flex flex-col md:flex-row gap-4">
+      <div className="bg-white p-6 rounded-4xl border border-zinc-100 shadow-sm flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
           <input 

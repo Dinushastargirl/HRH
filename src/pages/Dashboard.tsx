@@ -5,16 +5,19 @@ import {
   TrendingUp, Briefcase, UserCheck, ShieldCheck, Trash2, Camera,
   ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { LeaveRequest, AttendanceRecord, Task, LeaveType } from '../types';
+import { LeaveRequest, AttendanceRecord, Task, LeaveType, UserProfile } from '../types';
 import { cn, formatDate } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, 
   Tooltip, ResponsiveContainer, Cell, PieChart, Pie 
 } from 'recharts';
+import { onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { db } from '../firebase';
 
 import { useAuth } from '../hooks/useAuth';
-import { mockService } from '../mockService';
+import * as firestoreService from '../services/firestoreService';
+import { mockService } from '../mockService'; // Keeping for reference/fallback
 import { toast } from 'sonner';
 
 export default function Dashboard() {
@@ -22,6 +25,7 @@ export default function Dashboard() {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [employees, setEmployees] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -48,12 +52,87 @@ export default function Dashboard() {
     return { text: 'Good Evening', icon: '🌙' };
   };
 
-  const loadData = () => {
-    if (!uid) return;
-    setRequests(mockService.getLeaves(uid));
-    setAttendance(mockService.getAttendance(uid));
-    setTasks(mockService.getTasks(uid));
-    setLoading(false);
+  useEffect(() => {
+    if (!uid || !user) return;
+
+    setLoading(true);
+    const isManagement = user.role === 'hr' || user.role === 'owner' || user.role === 'super';
+
+    // 1. Real-time Employees (needed for names & management dashboard)
+    const empsUnsub = onSnapshot(collection(db, 'users'), (snap) => {
+      setEmployees(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserProfile)));
+    });
+
+    // 2. Real-time Leaves
+    const leavesQuery = isManagement 
+      ? query(collection(db, 'leaveRequests'), orderBy('createdAt', 'desc'))
+      : query(collection(db, 'leaveRequests'), where('userId', '==', uid), orderBy('createdAt', 'desc'));
+
+    const leavesUnsub = onSnapshot(leavesQuery, (snap) => {
+      setRequests(snap.docs.map(d => ({ id: d.id, ...d.data() } as LeaveRequest)));
+      setLoading(false);
+    }, (err) => {
+      console.error('Leaves listener error:', err);
+      setLoading(false);
+    });
+
+    // 3. Real-time Attendance
+    const attendanceQuery = isManagement 
+      ? query(collection(db, 'attendance'), orderBy('date', 'desc'))
+      : query(collection(db, 'attendance'), where('userId', '==', uid), orderBy('date', 'desc'));
+
+    const attendanceUnsub = onSnapshot(attendanceQuery, (snap) => {
+      setAttendance(snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord)));
+    }, (err) => {
+      console.error('Attendance listener error:', err);
+    });
+
+    // 4. Real-time Tasks (Tasks always personal for now)
+    const tasksUnsub = onSnapshot(
+      query(collection(db, 'tasks'), where('userId', '==', uid), orderBy('createdAt', 'desc')),
+      (snap) => {
+        setTasks(snap.docs.map(d => ({ id: d.id, ...d.data() } as Task)));
+      }, (err) => {
+        console.error('Tasks listener error:', err);
+      }
+    );
+
+    return () => {
+      empsUnsub();
+      leavesUnsub();
+      attendanceUnsub();
+      tasksUnsub();
+    };
+  }, [uid, user?.role]);
+
+  // Live Performance Calculation logic (mirrors Performance page)
+  const getLiveMetrics = (targetUid: string) => {
+    const empAttendance = attendance.filter(a => a.userId === targetUid);
+    const empTasks = tasks.filter(t => t.userId === targetUid);
+    
+    const totalLogs = empAttendance.length;
+    const lateLogs = empAttendance.filter(a => a.isLate).length;
+    const punctuality = totalLogs > 0 ? Math.round(((totalLogs - lateLogs) / totalLogs) * 100) : 100;
+
+    const finishedTasks = empTasks.filter(t => t.completed).length;
+    const efficiency = empTasks.length > 0 ? Math.round((finishedTasks / empTasks.length) * 100) : 0;
+
+    const reliability = totalLogs > 0 ? Math.round((empAttendance.filter(a => a.checkOut).length / totalLogs) * 100) : 100;
+    
+    return Math.round((punctuality + efficiency + reliability) / 3) || 85;
+  };
+
+  const currentPerformance = user ? getLiveMetrics(user.uid) : 85;
+
+  const getLocalToday = () => {
+    return new Intl.DateTimeFormat('en-CA', { 
+      timeZone: 'Asia/Colombo', 
+      year: 'numeric', month: '2-digit', day: '2-digit' 
+    }).format(currentTime);
+  };
+
+  const loadData = async () => {
+    // Handled by onSnapshot
   };
 
   const todayStr = currentTime.toISOString().split('T')[0];
@@ -61,57 +140,45 @@ export default function Dashboard() {
   const isCheckedIn = !!todayRecord;
   const isCheckedOut = !!todayRecord?.checkOut;
 
-  useEffect(() => {
-    loadData();
-  }, [uid]);
-
-  const handleCheckIn = () => {
+  const handleCheckIn = async () => {
     if (!uid) return;
-    const todayStr = currentTime.toISOString().split('T')[0];
-    const hour = currentTime.getHours();
-    const isLate = hour >= 9;
+    const success = await firestoreService.checkIn(uid);
+    if (success) {
+      toast.success('Checked in successfully!');
+      loadData();
+    } else {
+      toast.error('Already checked in today');
+    }
+  };
 
-    mockService.saveAttendance({
-      userId: uid,
-      date: todayStr,
-      checkIn: currentTime.toISOString(),
-      isLate,
-      isEarlyOut: false,
-    });
-    toast.success('Checked in successfully!');
+  const handleCheckOut = async () => {
+    if (!uid) return;
+    const success = await firestoreService.checkOut(uid);
+    if (success) {
+      toast.success('Checked out successfully!');
+      loadData();
+    } else {
+      toast.error('Failed to check out');
+    }
+  };
+
+  const toggleTask = async (id: string) => {
+    await firestoreService.toggleTask(id);
     loadData();
   };
 
-  const handleCheckOut = () => {
-    if (!todayRecord?.id) return;
-    const hour = currentTime.getHours();
-    const isEarlyOut = hour < 17;
-
-    mockService.updateAttendance(todayRecord.id, {
-      checkOut: currentTime.toISOString(),
-      isEarlyOut,
-    });
-    toast.success('Checked out successfully!');
+  const deleteTask = async (id: string) => {
+    await firestoreService.deleteTask(id);
     loadData();
   };
 
-  const toggleTask = (id: string) => {
-    mockService.toggleTask(id);
-    loadData();
-  };
-
-  const deleteTask = (id: string) => {
-    mockService.deleteTask(id);
-    loadData();
-  };
-
-  const addTask = (e: React.FormEvent<HTMLFormElement>) => {
+  const addTask = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
     const title = (form.elements.namedItem('taskTitle') as HTMLInputElement).value;
     if (!title || !uid) return;
 
-    mockService.saveTask({
+    await firestoreService.saveTask({
       userId: uid,
       title,
       completed: false,
@@ -122,7 +189,7 @@ export default function Dashboard() {
     loadData();
   };
 
-  const handleSubmitLeave = (e: React.FormEvent) => {
+  const handleSubmitLeave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uid || !user) return;
     
@@ -140,27 +207,35 @@ export default function Dashboard() {
     }
 
     setSubmitting(true);
-    mockService.saveLeave({
-      userId: uid,
-      userName: user.name,
-      userRole: user.role,
-      leaveType,
-      reason,
-      startDate: startDate,
-      endDate: endDate,
-      status: 'Pending',
-      createdAt: new Date().toISOString(),
-      imageUrl: leaveImage || undefined,
-    });
-    
-    toast.success('Leave request submitted!');
-    setIsModalOpen(false);
-    setReason('');
-    setStartDate('');
-    setEndDate('');
-    setLeaveImage(null);
-    setSubmitting(false);
-    loadData();
+    try {
+      const leaveData: any = {
+        userId: uid,
+        userName: user.name,
+        userRole: user.role,
+        leaveType,
+        reason,
+        startDate: startDate,
+        endDate: endDate,
+        status: 'Pending',
+        createdAt: new Date().toISOString(),
+        imageUrl: leaveImage || null
+      };
+      
+      await firestoreService.saveLeave(leaveData);
+      
+      toast.success('Leave request submitted successfully!');
+      setIsModalOpen(false);
+      setReason('');
+      setStartDate('');
+      setEndDate('');
+      setLeaveImage(null);
+      loadData();
+    } catch (error: any) {
+      console.error('Leave submission error:', error);
+      toast.error(error.message || 'Failed to submit leave request. Please check your data.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -188,7 +263,7 @@ export default function Dashboard() {
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
     return (
-      <div className="bg-white p-6 rounded-[2rem] border border-zinc-100 shadow-sm">
+      <div className="bg-white p-6 rounded-4xl border border-zinc-100 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-bold text-zinc-900 flex items-center gap-2">
             <CalendarIcon size={18} className="text-orange-500" />
@@ -234,12 +309,19 @@ export default function Dashboard() {
     );
   };
 
-  const leaveData = user ? [
-    { name: 'Annual', value: user.leaveQuotas.annual - user.usedLeaves.annual, color: '#f97316' },
-    { name: 'Sick', value: user.leaveQuotas.sick - user.usedLeaves.sick, color: '#ef4444' },
-    { name: 'Casual', value: user.leaveQuotas.casual - user.usedLeaves.casual, color: '#3b82f6' },
-    { name: 'Short', value: user.leaveQuotas.short - user.usedLeaves.short, color: '#10b981' },
-  ] : [];
+  const getManagementStats = () => {
+    const todayStr = getLocalToday();
+    const activeNow = attendance.filter(a => a.date === todayStr && !a.checkOut).length;
+    const pendingRequests = requests.filter(r => r.status === 'Pending').length;
+    
+    // Average company performance
+    const allScores = employees.map(e => getLiveMetrics(e.uid));
+    const avgScore = allScores.length > 0 ? Math.round(allScores.reduce((a: number, b: number) => a + b, 0) / allScores.length) : 85;
+
+    return { totalStaff: employees.length, activeNow, pendingRequests, avgScore };
+  };
+
+  const mStats = getManagementStats();
 
   const attendanceData = [
     { day: 'Mon', hours: 0 },
@@ -249,123 +331,163 @@ export default function Dashboard() {
     { day: 'Fri', hours: 0 },
   ];
 
-  attendance.forEach(r => {
-    const day = new Date(r.date).toLocaleDateString([], { weekday: 'short' });
-    const data = attendanceData.find(d => d.day === day);
-    if (data && r.checkIn && r.checkOut) {
+  // Map real attendance to the weekly chart
+  attendance.slice(0, 30).forEach(r => {
+    const date = new Date(r.date);
+    const dayName = date.toLocaleDateString([], { weekday: 'short' });
+    const match = attendanceData.find(d => d.day === dayName);
+    if (match && r.checkIn && r.checkOut) {
       const diff = new Date(r.checkOut).getTime() - new Date(r.checkIn).getTime();
-      data.hours = Math.round((diff / (1000 * 60 * 60)) * 10) / 10;
+      match.hours = Math.max(match.hours, Math.round((diff / (1000 * 60 * 60)) * 10) / 10);
     }
   });
 
-  if (loading) return <div className="p-8 text-center text-zinc-400">Loading your workspace...</div>;
+  if (loading) return <div className="p-8 text-center text-zinc-400 font-bold">Syncing HR Pulse...</div>;
 
   const greeting = getGreeting();
+  const isAdmin = user?.role === 'owner' || user?.role === 'super' || user?.role === 'hr';
 
   return (
     <div className="space-y-8 pb-12">
-      {/* Header Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* 🚀 Role-Aware Header Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-[2rem] p-8 text-white shadow-xl shadow-orange-100 relative overflow-hidden">
+          <div className="bg-linear-to-br from-zinc-900 to-zinc-800 rounded-4xl p-8 text-white shadow-xl relative overflow-hidden">
             <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-6">
                 <span className="text-4xl">{greeting.icon}</span>
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <div>
                       <h1 className="text-3xl font-black">{greeting.text}, {user?.name.split(' ')[0]}!</h1>
-                      <p className="text-orange-100 font-bold">{currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                      <p className="text-zinc-400 font-bold uppercase tracking-wider text-xs">
+                        {isAdmin ? `${user?.role.toUpperCase()} • Company Access Active` : `${user?.role.toUpperCase()} • Personal Workspace`}
+                      </p>
                     </div>
-                    <div className="text-right hidden md:block">
-                      <p className="text-5xl font-black tracking-tighter">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
-                      <p className="text-xs font-bold text-orange-200 uppercase tracking-widest">Current Time</p>
+                    <div className="text-right hidden md:block border-l border-white/10 pl-6">
+                      <p className="text-5xl font-black tracking-tighter tabular-nums">{currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest">{currentTime.toLocaleDateString([], { weekday: 'long' })}</p>
                     </div>
                   </div>
                 </div>
               </div>
               
-              <p className="text-orange-50 opacity-90 font-medium max-w-md mb-8">
-                {user?.role === 'employee' 
-                  ? `You have ${user.leaveQuotas.annual - user.usedLeaves.annual} annual leave days remaining. Your current performance score is ${user.performanceScore}%.`
-                  : `Administrative Portal: You have full control over ${user?.role === 'owner' || user?.role === 'super' ? 'HR and Employee' : 'Employee'} management.`}
-              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                {isAdmin ? (
+                  <>
+                    <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Total Staff</p>
+                      <p className="text-2xl font-black">{mStats.totalStaff}</p>
+                    </div>
+                    <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Active Now</p>
+                      <p className="text-2xl font-black text-green-400">{mStats.activeNow}</p>
+                    </div>
+                    <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                      <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Pending Requests</p>
+                      <p className="text-2xl font-black text-orange-400">{mStats.pendingRequests}</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Performance</p>
+                    <p className="text-2xl font-black text-orange-400">{currentPerformance}%</p>
+                  </div>
+                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Net Pay</p>
+                    <p className="text-2xl font-black">LKR {user?.net.toLocaleString()}</p>
+                  </div>
+                  <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-1">Remaining Leaves</p>
+                    <p className="text-2xl font-black text-blue-400">{user?.leaveQuotas.annual - user?.usedLeaves.annual} d</p>
+                  </div>
+                  </>
+                )}
+              </div>
 
               <div className="flex flex-wrap gap-4">
-                {user?.role === 'employee' && (
+                {!isAdmin ? (
                   <>
-                    {!isCheckedIn ? (
+                    {!(attendance.find(r => r.date === getLocalToday())) ? (
                       <button 
                         onClick={handleCheckIn}
-                        className="bg-white text-orange-600 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-orange-50 transition-all shadow-lg"
+                        className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-orange-600 transition-all shadow-lg shadow-orange-900/20"
                       >
                         <ArrowUpRight size={20} />
                         Check In Now
                       </button>
-                    ) : !isCheckedOut ? (
+                    ) : !(attendance.find(r => r.date === getLocalToday() && r.checkOut)) ? (
                       <button 
                         onClick={handleCheckOut}
-                        className="bg-zinc-900 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-800 transition-all shadow-lg"
+                        className="bg-white text-zinc-900 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-100 transition-all shadow-lg"
                       >
                         <ArrowDownRight size={20} />
                         Check Out
                       </button>
                     ) : (
-                      <div className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl font-bold flex items-center gap-2">
-                        <UserCheck size={20} />
-                        Shift Completed
+                      <div className="bg-green-500/20 text-green-400 border border-green-500/30 px-6 py-3 rounded-2xl font-bold flex items-center gap-2">
+                        <CheckCircle2 size={20} />
+                        Shift Logged
                       </div>
                     )}
-                    <button 
-                      onClick={() => setIsModalOpen(true)}
-                      className="bg-orange-400/30 backdrop-blur-md text-white border border-white/30 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-orange-400/40 transition-all"
-                    >
-                      <Plus size={20} />
-                      Request Leave
-                    </button>
                   </>
-                )}
-                {(user?.role === 'hr' || user?.role === 'owner' || user?.role === 'super') && (
+                ) : (
                   <div className="flex gap-4">
-                    <div className="bg-white/20 backdrop-blur-md px-6 py-3 rounded-2xl font-bold flex items-center gap-2">
+                    <div className="bg-orange-500 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg shadow-orange-900/20">
                       <ShieldCheck size={20} />
-                      {user.role.toUpperCase()} Access
+                      Management Mode
                     </div>
-                    <button 
-                      onClick={() => setIsModalOpen(true)}
-                      className="bg-orange-400/30 backdrop-blur-md text-white border border-white/30 px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-orange-400/40 transition-all"
-                    >
-                      <Plus size={20} />
-                      Request Personal Leave
-                    </button>
+                    {(user?.role === 'owner' || user?.role === 'super') && (
+                      <div className="bg-white/10 border border-white/10 px-6 py-3 rounded-2xl font-bold flex items-center gap-2">
+                        <TrendingUp size={20} className="text-green-400" />
+                        Avg Performance: {mStats.avgScore}%
+                      </div>
+                    )}
                   </div>
                 )}
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-white/10 border border-white/20 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-white/20 transition-all"
+                >
+                  <Plus size={20} />
+                  New Request
+                </button>
               </div>
             </div>
-            <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-[-20%] left-[-5%] w-48 h-48 bg-orange-400/20 rounded-full blur-2xl"></div>
+            <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-orange-500/10 rounded-full blur-3xl"></div>
           </div>
 
           {/* Analytics Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-[2rem] border border-zinc-100 shadow-sm">
+            <div className="bg-white p-6 rounded-4xl border border-zinc-100 shadow-sm">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-zinc-900 flex items-center gap-2">
-                  <TrendingUp size={18} className="text-orange-500" />
-                  Leave Balances
+                <h3 className="font-bold text-zinc-900 flex items-center gap-2 text-sm uppercase tracking-widest">
+                  <TrendingUp size={16} className="text-orange-500" />
+                  {isAdmin ? 'Company Resources' : 'My Leave Status'}
                 </h3>
               </div>
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={leaveData}
+                      data={user ? [
+                        { name: 'Annual', value: user.leaveQuotas.annual - user.usedLeaves.annual, color: '#f97316' },
+                        { name: 'Sick', value: user.leaveQuotas.sick - user.usedLeaves.sick, color: '#ef4444' },
+                        { name: 'Casual', value: user.leaveQuotas.casual - user.usedLeaves.casual, color: '#3b82f6' },
+                        { name: 'Used', value: Object.values(user.usedLeaves || {}).reduce((a: number, b: number) => a + b, 0), color: '#f4f4f5' },
+                      ] : []}
                       innerRadius={60}
                       outerRadius={80}
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {leaveData.map((entry, index) => (
+                      {[
+                        { color: '#f97316' },
+                        { color: '#ef4444' },
+                        { color: '#3b82f6' },
+                        { color: '#f4f4f5' }
+                      ].map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -373,21 +495,13 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="grid grid-cols-4 gap-2 mt-4">
-                {leaveData.map(item => (
-                  <div key={item.name} className="text-center">
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{item.name}</p>
-                    <p className="text-sm font-black text-zinc-900">{item.value}</p>
-                  </div>
-                ))}
-              </div>
             </div>
 
-            <div className="bg-white p-6 rounded-[2rem] border border-zinc-100 shadow-sm">
+            <div className="bg-white p-6 rounded-4xl border border-zinc-100 shadow-sm">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-zinc-900 flex items-center gap-2">
-                  <Timer size={18} className="text-orange-500" />
-                  Weekly Activity
+                <h3 className="font-bold text-zinc-900 flex items-center gap-2 text-sm uppercase tracking-widest">
+                  <Timer size={16} className="text-orange-500" />
+                  {isAdmin ? 'System Load' : 'Weekly Activity'}
                 </h3>
               </div>
               <div className="h-48">
@@ -397,32 +511,49 @@ export default function Dashboard() {
                     <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#a1a1aa' }} />
                     <YAxis hide />
                     <Tooltip cursor={{ fill: '#fff7ed' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                    <Bar dataKey="hours" fill="#f97316" radius={[6, 6, 0, 0]} barSize={24} />
+                    <Bar dataKey="hours" fill="#18181b" radius={[6, 6, 0, 0]} barSize={24} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <p className="text-xs text-center text-zinc-400 mt-4 font-medium">
-                {attendance.length > 0 ? `Last check-in: ${formatDate(attendance[attendance.length-1].checkIn)}` : 'No attendance records yet'}
-              </p>
             </div>
           </div>
         </div>
 
         <div className="space-y-6">
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white p-5 rounded-3xl border border-zinc-100 shadow-sm">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Performance</p>
-              <p className="text-2xl font-black text-orange-500">{user?.performanceScore}%</p>
-            </div>
-            <div className="bg-white p-5 rounded-3xl border border-zinc-100 shadow-sm">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Net Pay</p>
-              <p className="text-2xl font-black text-zinc-900">LKR {user?.net.toLocaleString()}</p>
+          {/* Quick Peek */}
+          <div className="bg-zinc-900 p-6 rounded-4xl text-white shadow-xl shadow-zinc-200">
+            <h3 className="font-bold text-sm uppercase tracking-widest text-zinc-500 mb-6 flex items-center gap-2">
+              <ShieldCheck size={16} className="text-orange-500" />
+              Company Health
+            </h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400 text-sm">Attendance</span>
+                <span className={cn(
+                  "font-black",
+                  mStats.activeNow / (mStats.totalStaff || 1) > 0.8 ? "text-green-400" : "text-orange-400"
+                )}>
+                  {Math.round((mStats.activeNow / (mStats.totalStaff || 1)) * 100)}% Active
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400 text-sm">Leave Volume</span>
+                <span className={cn(
+                  "font-black",
+                  mStats.pendingRequests > 5 ? "text-red-400" : mStats.pendingRequests > 2 ? "text-orange-400" : "text-green-400"
+                )}>
+                  {mStats.pendingRequests > 5 ? 'High Load' : mStats.pendingRequests > 2 ? 'Moderate' : 'Normal'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400 text-sm">Performance</span>
+                <span className="font-black text-white">{isAdmin ? `${mStats.avgScore}% avg` : `${currentPerformance}%`}</span>
+              </div>
             </div>
           </div>
 
           {/* Tasks Section */}
-          <div className="bg-white p-6 rounded-[2rem] border border-zinc-100 shadow-sm h-full flex flex-col">
+          <div className="bg-white p-6 rounded-4xl border border-zinc-100 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-zinc-900 flex items-center gap-2">
                 <ListTodo size={18} className="text-orange-500" />
@@ -489,7 +620,7 @@ export default function Dashboard() {
       </div>
 
       {/* Leave History Table */}
-      <div className="bg-white rounded-[2rem] border border-zinc-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-4xl border border-zinc-100 shadow-sm overflow-hidden">
         <div className="p-8 border-b border-zinc-50 flex items-center justify-between">
           <h2 className="text-xl font-black text-zinc-900">Recent Leave Requests</h2>
           <button className="text-sm font-bold text-orange-500 hover:text-orange-600 transition-colors">View All</button>
@@ -517,7 +648,10 @@ export default function Dashboard() {
                         <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600">
                           <Briefcase size={16} />
                         </div>
-                        <span className="font-bold text-zinc-900">{request.leaveType}</span>
+                        <div>
+                          <p className="font-bold text-zinc-900">{request.leaveType}</p>
+                          {isAdmin && <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{request.userName}</p>}
+                        </div>
                       </div>
                     </td>
                     <td className="px-8 py-5">

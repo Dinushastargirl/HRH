@@ -60,13 +60,13 @@ export async function saveEmployee(emp: UserProfile): Promise<void> {
     status: data.status,
     join_date: data.joinDate,
     salary_a: data.salaryA,
-    salary_b: data.salaryB,
-    epf: data.epf,
-    advances: data.advances,
-    cover: data.cover,
-    intensive: data.intensive,
-    travelling: data.travelling,
-    net: data.net,
+    salary_b: 0, // Salary B removed
+    epf: 2400, // Fixed EPF
+    advances: data.advances || 0,
+    cover: data.cover || 0,
+    intensive: data.intensive || 0,
+    travelling: data.travelling || 0,
+    net: (data.salaryA || 0) + (data.intensive || 0) + (data.travelling || 0) - 2400 - (data.advances || 0) - (data.cover || 0),
     performance_score: data.performanceScore,
     leave_quotas: data.leaveQuotas,
     used_leaves: data.usedLeaves,
@@ -114,13 +114,13 @@ export async function registerFullEmployee(emp: UserProfile, password?: string):
     status: emp.status || 'Available',
     join_date: emp.joinDate,
     salary_a: emp.salaryA,
-    salary_b: emp.salaryB,
-    epf: emp.epf,
-    advances: emp.advances,
-    cover: emp.cover,
-    intensive: emp.intensive,
-    travelling: emp.travelling,
-    net: emp.net,
+    salary_b: 0, // Salary B removed
+    epf: 2400, // Fixed EPF
+    advances: emp.advances || 0,
+    cover: emp.cover || 0,
+    intensive: emp.intensive || 0,
+    travelling: emp.travelling || 0,
+    net: (emp.salaryA || 0) + (emp.intensive || 0) + (emp.travelling || 0) - 2400 - (emp.advances || 0) - (emp.cover || 0),
     performance_score: emp.performanceScore,
     leave_quotas: emp.leaveQuotas,
     used_leaves: emp.usedLeaves,
@@ -163,8 +163,8 @@ export async function addIncentiveDeduction(
     ...emp,
     [field]: (emp[field] || 0) + amount,
   };
-  updated.net = updated.salaryA + updated.salaryB + updated.intensive + updated.travelling
-    - updated.epf - updated.advances - updated.cover;
+  updated.net = (updated.salaryA || 0) + (updated.intensive || 0) + (updated.travelling || 0) 
+    - 2400 - (updated.advances || 0) - (updated.cover || 0);
 
   await saveEmployee(updated);
   return true;
@@ -409,13 +409,13 @@ export async function generatePayroll(month: number, year: number): Promise<void
         month,
         year,
         salary_a: emp.salaryA,
-        salary_b: emp.salaryB,
-        epf: emp.epf,
-        advances: emp.advances,
-        cover: emp.cover,
-        intensive: emp.intensive,
-        travelling: emp.travelling,
-        net_salary: emp.net,
+        salary_b: 0,
+        epf: 2400,
+        advances: emp.advances || 0,
+        cover: emp.cover || 0,
+        intensive: emp.intensive || 0,
+        travelling: emp.travelling || 0,
+        net_salary: (emp.salaryA || 0) + (emp.intensive || 0) + (emp.travelling || 0) - 2400 - (emp.advances || 0) - (emp.cover || 0),
         status: 'Pending',
         branch: emp.branch
       });
@@ -427,8 +427,15 @@ export async function generatePayroll(month: number, year: number): Promise<void
 export async function updatePayroll(id: string, updates: Partial<PayrollRecord>): Promise<void> {
   const { error } = await supabase.from('payroll').update({
     status: updates.status,
-    incentives: updates.incentives,
-    bonus: updates.bonus
+    salary_a: updates.salaryA,
+    salary_b: 0,
+    epf: 2400,
+    advances: updates.advances,
+    cover: updates.cover,
+    intensive: updates.intensive,
+    travelling: updates.travelling,
+    net_salary: updates.netSalary,
+    updated_at: new Date().toISOString()
   }).eq('id', id);
   if (error) throw error;
 }

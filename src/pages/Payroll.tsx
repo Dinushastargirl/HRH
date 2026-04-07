@@ -59,7 +59,6 @@ function exportPayslipsToPDF(payrolls: PayrollRecord[], monthIdx: number, year: 
     { label: 'Total Employees', value: String(payrolls.length) },
     { label: 'Total Net Payout',  value: `LKR ${totalNet.toLocaleString()}` },
     { label: 'Total Salary A',    value: `LKR ${totalA.toLocaleString()}` },
-    { label: 'Total Salary B',    value: `LKR ${totalB.toLocaleString()}` },
     { label: 'Total EPF',         value: `LKR ${totalEPF.toLocaleString()}` },
     { label: 'Paid',              value: String(paidCount) },
     { label: 'Pending',           value: String(pendingCount) },
@@ -83,7 +82,7 @@ function exportPayslipsToPDF(payrolls: PayrollRecord[], monthIdx: number, year: 
     startY: 44,
     head: [[
       'Employee', 'Branch', 'Month',
-      'Salary A', 'Salary B', 'EPF', 'Advances', 'Cover',
+      'Salary A', 'EPF', 'Advances', 'Cover',
       'Intensive', 'Travelling', 'Net Salary', 'Status'
     ]],
     body: payrolls.map(p => [
@@ -91,7 +90,6 @@ function exportPayslipsToPDF(payrolls: PayrollRecord[], monthIdx: number, year: 
       p.branch   || 'General',
       `${months[p.month] ?? '?'} ${p.year}`,
       (p.salaryA    || 0).toLocaleString(),
-      (p.salaryB    || 0).toLocaleString(),
       (p.epf        || 0).toLocaleString(),
       (p.advances   || 0).toLocaleString(),
       (p.cover      || 0).toLocaleString(),
@@ -103,7 +101,6 @@ function exportPayslipsToPDF(payrolls: PayrollRecord[], monthIdx: number, year: 
     foot: [[
       'TOTAL', '', '',
       totalA.toLocaleString(),
-      totalB.toLocaleString(),
       totalEPF.toLocaleString(),
       payrolls.reduce((s,p) => s+(p.advances||0),0).toLocaleString(),
       payrolls.reduce((s,p) => s+(p.cover||0),0).toLocaleString(),
@@ -134,22 +131,21 @@ function exportPayslipsToPDF(payrolls: PayrollRecord[], monthIdx: number, year: 
       fillColor: [250, 250, 250],   // zinc-50
     },
     columnStyles: {
-      0:  { fontStyle: 'bold', cellWidth: 38 },
-      1:  { cellWidth: 22 },
-      2:  { cellWidth: 22 },
-      3:  { halign: 'right', cellWidth: 20 },
-      4:  { halign: 'right', cellWidth: 20 },
-      5:  { halign: 'right', cellWidth: 18, textColor: [220, 38, 38]  },
-      6:  { halign: 'right', cellWidth: 18, textColor: [220, 38, 38]  },
-      7:  { halign: 'right', cellWidth: 18, textColor: [220, 38, 38]  },
-      8:  { halign: 'right', cellWidth: 22, textColor: [22, 163, 74]  },
-      9:  { halign: 'right', cellWidth: 22, textColor: [22, 163, 74]  },
-      10: { halign: 'right', cellWidth: 28, fontStyle: 'bold' },
-      11: { halign: 'center', cellWidth: 20 },
+      0:  { fontStyle: 'bold', cellWidth: 42 },
+      1:  { cellWidth: 26 },
+      2:  { cellWidth: 26 },
+      3:  { halign: 'right', cellWidth: 24 },
+      4:  { halign: 'right', cellWidth: 20, textColor: [220, 38, 38]  },
+      5:  { halign: 'right', cellWidth: 20, textColor: [220, 38, 38]  },
+      6:  { halign: 'right', cellWidth: 20, textColor: [220, 38, 38]  },
+      7:  { halign: 'right', cellWidth: 24, textColor: [22, 163, 74]  },
+      8:  { halign: 'right', cellWidth: 24, textColor: [22, 163, 74]  },
+      9:  { halign: 'right', cellWidth: 32, fontStyle: 'bold' },
+      10: { halign: 'center', cellWidth: 24 },
     },
     // colour the status cell
     didParseCell(data) {
-      if (data.section === 'body' && data.column.index === 11) {
+      if (data.section === 'body' && data.column.index === 10) {
         const val = String(data.cell.raw);
         if (val === 'Paid') {
           data.cell.styles.textColor    = [22, 163, 74];  // green-600
@@ -331,13 +327,12 @@ export default function Payroll() {
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Employee</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Month</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Salary A</th>
-                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Salary B</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">EPF</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Advances</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Cover</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Intensive</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Travelling</th>
-                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">Net Salary</th>
+                <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right text-orange-500">Net Salary</th>
                 <th className="px-8 py-4 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Status</th>
               </tr>
             </thead>
@@ -361,9 +356,6 @@ export default function Payroll() {
                   <td className="px-8 py-5 text-sm font-bold text-zinc-900 text-right">
                     {(p.salaryA || 0).toLocaleString()}
                   </td>
-                  <td className="px-8 py-5 text-sm font-bold text-zinc-900 text-right">
-                    {(p.salaryB || 0).toLocaleString()}
-                  </td>
                   <td className="px-8 py-5 text-sm font-bold text-red-600 text-right">
                     {(p.epf || 0).toLocaleString()}
                   </td>
@@ -380,7 +372,7 @@ export default function Payroll() {
                     {(p.travelling || 0).toLocaleString()}
                   </td>
                   <td className="px-8 py-5 text-right">
-                    <span className="text-base font-black text-zinc-900">LKR {(p.netSalary || 0).toLocaleString()}</span>
+                    <span className="text-base font-black text-orange-600">LKR {(p.netSalary || 0).toLocaleString()}</span>
                   </td>
                   <td className="px-8 py-5">
                     <div className={cn(

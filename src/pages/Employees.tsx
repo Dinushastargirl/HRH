@@ -95,7 +95,7 @@ export default function Employees() {
 
   const exportToCSV = () => {
     const headers = [
-      'Branch', 'Name', 'Join Date', 'Salary A', 'Salary B', 'EPF', 
+      'Branch', 'Name', 'Join Date', 'Salary A', 'EPF', 
       'Advances', 'Cover Dedication', 'Intensive', 'Travelling', 'Net Salary', 'Username', 'Role'
     ];
     
@@ -104,7 +104,6 @@ export default function Employees() {
       emp.name,
       emp.joinDate,
       emp.salaryA,
-      emp.salaryB,
       emp.epf,
       emp.advances,
       emp.cover,
@@ -206,13 +205,12 @@ export default function Employees() {
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Name</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest">Join Date</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Salary A</th>
-                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Salary B</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">EPF</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Advances</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Cover Dedication</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Intensive</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Travelling</th>
-                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right">Net Salary</th>
+                <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-right text-orange-500">Net Salary</th>
                 <th className="px-6 py-4 text-[10px] font-black text-zinc-400 uppercase tracking-widest text-center">Actions</th>
               </tr>
             </thead>
@@ -232,13 +230,12 @@ export default function Employees() {
                   </td>
                   <td className="px-6 py-4 text-xs font-medium text-zinc-500">{formatDate(emp.joinDate)}</td>
                   <td className="px-6 py-4 text-xs font-bold text-zinc-900 text-right">{emp.salaryA.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-xs font-bold text-zinc-500 text-right">{emp.salaryB.toLocaleString()}</td>
                   <td className="px-6 py-4 text-xs font-bold text-zinc-500 text-right">{emp.epf.toLocaleString()}</td>
                   <td className="px-6 py-4 text-xs font-bold text-red-600 text-right">{emp.advances.toLocaleString()}</td>
                   <td className="px-6 py-4 text-xs font-bold text-red-600 text-right">{emp.cover.toLocaleString()}</td>
                   <td className="px-6 py-4 text-xs font-bold text-green-600 text-right">{emp.intensive.toLocaleString()}</td>
                   <td className="px-6 py-4 text-xs font-bold text-green-600 text-right">{emp.travelling.toLocaleString()}</td>
-                  <td className="px-6 py-4 text-xs font-black text-zinc-900 text-right bg-zinc-50/50">{emp.net.toLocaleString()}</td>
+                  <td className="px-6 py-4 text-sm font-black text-orange-600 text-right bg-orange-50/30">{emp.net.toLocaleString()}</td>
                   <td className="px-6 py-4 text-xs font-medium text-zinc-500">{emp.username}</td>
                   <td className="px-6 py-4">
                     <span className={cn(
@@ -364,8 +361,8 @@ export default function Employees() {
                     const data = Object.fromEntries(formData.entries()) as any;
                     
                     const salaryA = Number(data.salaryA) || 0;
-                    const salaryB = Number(data.salaryB) || 0;
-                    const epf = Number(data.epf) || 0;
+                    const salaryB = 0; // Removed Salary B
+                    const epf = 2400; // Fixed EPF
                     const advances = Number(data.advances) || 0;
                     const cover = Number(data.cover) || 0;
                     const intensive = Number(data.intensive) || 0;
@@ -473,37 +470,13 @@ export default function Employees() {
                           onChange={(e) => {
                             const form = e.target.form;
                             if (form) {
-                              const sA = Number(e.target.value);
-                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
-                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
-                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
-                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
-                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
-                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
-                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
-                            }
-                          }}
-                          className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Salary B</label>
-                        <input 
-                          name="salaryB" 
-                          type="number" 
-                          defaultValue={editingEmp?.salaryB} 
-                          required 
-                          onChange={(e) => {
-                            const form = e.target.form;
-                            if (form) {
-                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
-                              const sB = Number(e.target.value);
-                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
-                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
-                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
-                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
-                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
-                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
+                              const sA = Number(e.target.value) || 0;
+                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value) || 0;
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value) || 0;
+                              const epf = 2400;
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value) || 0;
+                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value) || 0;
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + intensive + travelling - epf - advances - cover).toString();
                             }
                           }}
                           className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 
@@ -514,22 +487,9 @@ export default function Employees() {
                         <input 
                           name="epf" 
                           type="number" 
-                          defaultValue={editingEmp?.epf} 
-                          required 
-                          onChange={(e) => {
-                            const form = e.target.form;
-                            if (form) {
-                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
-                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
-                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
-                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
-                              const epf = Number(e.target.value);
-                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
-                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
-                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
-                            }
-                          }}
-                          className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 
+                          value={2400} 
+                          readOnly 
+                          className="w-full px-5 py-3 bg-zinc-100 border border-zinc-100 rounded-2xl text-sm font-bold text-zinc-500 outline-none cursor-not-allowed" 
                         />
                       </div>
                       <div className="space-y-2">
@@ -565,14 +525,13 @@ export default function Employees() {
                           onChange={(e) => {
                             const form = e.target.form;
                             if (form) {
-                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
-                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
-                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
-                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
-                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
-                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
-                              const cover = Number(e.target.value);
-                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
+                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value) || 0;
+                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value) || 0;
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value) || 0;
+                              const epf = 2400;
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value) || 0;
+                              const cover = Number(e.target.value) || 0;
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + intensive + travelling - epf - advances - cover).toString();
                             }
                           }}
                           className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-red-500 outline-none" 
@@ -588,14 +547,13 @@ export default function Employees() {
                           onChange={(e) => {
                             const form = e.target.form;
                             if (form) {
-                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
-                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
-                              const intensive = Number(e.target.value);
-                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value);
-                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
-                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
-                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
-                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
+                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value) || 0;
+                              const intensive = Number(e.target.value) || 0;
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value) || 0;
+                              const epf = 2400;
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value) || 0;
+                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value) || 0;
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + intensive + travelling - epf - advances - cover).toString();
                             }
                           }}
                           className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 
@@ -611,14 +569,13 @@ export default function Employees() {
                           onChange={(e) => {
                             const form = e.target.form;
                             if (form) {
-                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value);
-                              const sB = Number((form.elements.namedItem('salaryB') as HTMLInputElement).value);
-                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value);
-                              const travelling = Number(e.target.value);
-                              const epf = Number((form.elements.namedItem('epf') as HTMLInputElement).value);
-                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value);
-                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value);
-                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + sB + intensive + travelling - epf - advances - cover).toString();
+                              const sA = Number((form.elements.namedItem('salaryA') as HTMLInputElement).value) || 0;
+                              const intensive = Number((form.elements.namedItem('intensive') as HTMLInputElement).value) || 0;
+                              const travelling = Number((form.elements.namedItem('travelling') as HTMLInputElement).value) || 0;
+                              const epf = 2400;
+                              const advances = Number((form.elements.namedItem('advances') as HTMLInputElement).value) || 0;
+                              const cover = Number((form.elements.namedItem('cover') as HTMLInputElement).value) || 0;
+                              (form.elements.namedItem('net') as HTMLInputElement).value = (sA + intensive + travelling - epf - advances - cover).toString();
                             }
                           }}
                           className="w-full px-5 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none" 

@@ -46,15 +46,20 @@ export default function ManagePayroll() {
       const original = payrolls.find(p => p.id === id);
       if (!original) return;
 
-      const intensive = Number(editData.intensive ?? original.intensive);
-      const advances = Number(editData.advances ?? original.advances);
-      const travelling = Number(editData.travelling ?? original.travelling);
+      const intensive = Number(editData.intensive ?? original.intensive) || 0;
+      const advances = Number(editData.advances ?? original.advances) || 0;
+      const travelling = Number(editData.travelling ?? original.travelling) || 0;
+      const epf = 2400;
+      const cover = Number(original.cover) || 0;
+      const salaryA = Number(original.salaryA) || 0;
       
-      // Recalculate Net: Salary A + Salary B + Intensive + Travelling - EPF - Advances - Cover
-      const netSalary = (original.salaryA || 0) + (original.salaryB || 0) + intensive + travelling - (original.epf || 0) - advances - (original.cover || 0);
+      // New Formula: Net = SalaryA - 2400 - Advances - Cover + Intensive + Travelling
+      const netSalary = salaryA - epf - advances - cover + intensive + travelling;
 
       await supabaseService.updatePayroll(id, {
         ...editData,
+        epf,
+        salaryB: 0,
         netSalary: isNaN(netSalary) ? 0 : netSalary
       });
       
@@ -117,17 +122,12 @@ export default function ManagePayroll() {
               </div>
             </div>
 
-            <div className="flex-1 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+            <div className="flex-1 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Salary A</p>
                 <p className="text-sm font-black text-zinc-900">{(p.salaryA || 0).toLocaleString()}</p>
               </div>
 
-              <div>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Salary B</p>
-                <p className="text-sm font-black text-zinc-900">{(p.salaryB || 0).toLocaleString()}</p>
-              </div>
-              
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Intensive</p>
                 {editingId === p.id ? (
@@ -158,7 +158,7 @@ export default function ManagePayroll() {
 
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">EPF</p>
-                <p className="text-sm font-black text-red-600">-{(p.epf || 0).toLocaleString()}</p>
+                <p className="text-sm font-black text-red-600">-2,400</p>
               </div>
 
               <div>
@@ -181,8 +181,8 @@ export default function ManagePayroll() {
               </div>
 
               <div>
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Net Payout</p>
-                <p className="text-sm font-black text-zinc-900">LKR {(p.netSalary || 0).toLocaleString()}</p>
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1 text-orange-500">Net Payout</p>
+                <p className="text-sm font-black text-orange-600">LKR {(p.netSalary || 0).toLocaleString()}</p>
               </div>
             </div>
 

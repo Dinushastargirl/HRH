@@ -107,7 +107,7 @@ export default function Leaves() {
   const handleAction = async (id: string, status: 'Approved' | 'Rejected') => {
     if (!user) return;
     try {
-      await supabaseService.updateLeave(id, status, user.name);
+      await supabaseService.updateLeave(id, status, user.uid);
       toast.success(`Leave request ${status.toLowerCase()}`);
       loadData();
     } catch (err) {

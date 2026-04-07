@@ -49,11 +49,11 @@ export default function ManagePayroll() {
       const intensive = Number(editData.intensive ?? original.intensive) || 0;
       const advances = Number(editData.advances ?? original.advances) || 0;
       const travelling = Number(editData.travelling ?? original.travelling) || 0;
-      const epf = 2400;
-      const cover = Number(original.cover) || 0;
+      const epf = Number(editData.epf ?? original.epf) || 0;
+      const cover = Number(editData.cover ?? original.cover) || 0;
       const salaryA = Number(original.salaryA) || 0;
       
-      // New Formula: Net = SalaryA - 2400 - Advances - Cover + Intensive + Travelling
+      // New Formula: Net = SalaryA - EPF - Advances - Cover + Intensive + Travelling
       const netSalary = salaryA - epf - advances - cover + intensive + travelling;
 
       await supabaseService.updatePayroll(id, {
@@ -158,7 +158,16 @@ export default function ManagePayroll() {
 
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">EPF</p>
-                <p className="text-sm font-black text-red-600">-2,400</p>
+                {editingId === p.id && p.userName === 'Dilini Sanarathna' ? (
+                  <input 
+                    type="number" 
+                    value={editData.epf ?? p.epf}
+                    onChange={(e) => setEditData({ ...editData, epf: Number(e.target.value) })}
+                    className="w-full px-3 py-1 bg-zinc-50 border border-zinc-100 rounded-lg text-sm font-bold text-red-600 outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                ) : (
+                  <p className="text-sm font-black text-red-600">-{p.epf.toLocaleString()}</p>
+                )}
               </div>
 
               <div>
@@ -177,7 +186,16 @@ export default function ManagePayroll() {
 
               <div>
                 <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Cover</p>
-                <p className="text-sm font-black text-red-600">-{(p.cover || 0).toLocaleString()}</p>
+                {editingId === p.id ? (
+                  <input 
+                    type="number" 
+                    value={editData.cover ?? p.cover}
+                    onChange={(e) => setEditData({ ...editData, cover: Number(e.target.value) })}
+                    className="w-full px-3 py-1 bg-zinc-50 border border-zinc-100 rounded-lg text-sm font-bold text-red-600 outline-none focus:ring-2 focus:ring-red-500"
+                  />
+                ) : (
+                  <p className="text-sm font-black text-red-600">-{(p.cover || 0).toLocaleString()}</p>
+                )}
               </div>
 
               <div>

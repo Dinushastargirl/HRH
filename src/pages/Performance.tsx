@@ -62,7 +62,7 @@ export default function Performance() {
     // 1. Punctuality (based on 'isLate' flag in attendance)
     const totalLogs = attendance.length;
     const lateLogs = attendance.filter(a => a.isLate).length;
-    const punctualityScore = totalLogs > 0 ? Math.max(0, Math.round(((totalLogs - lateLogs) / totalLogs) * 100)) : 100;
+    const punctualityScore = totalLogs > 0 ? Math.max(0, Math.round(((totalLogs - lateLogs) / totalLogs) * 100)) : 0;
 
     // 2. Efficiency (based on task completion)
     const totalTasks = tasks.length;
@@ -71,10 +71,10 @@ export default function Performance() {
 
     // 3. Reliability (based on shifts completed vs total)
     const shiftsCompleted = attendance.filter(a => a.checkOut).length;
-    const reliabilityScore = totalLogs > 0 ? Math.round((shiftsCompleted / totalLogs) * 100) : 100;
+    const reliabilityScore = totalLogs > 0 ? Math.round((shiftsCompleted / totalLogs) * 100) : 0;
 
     // Composite Performance Score
-    const finalScore = Math.round((punctualityScore + efficiencyScore + reliabilityScore) / 3) || 85;
+    const finalScore = Math.round((punctualityScore + efficiencyScore + reliabilityScore) / 3) || 0;
 
     return { 
       punctuality: punctualityScore, 

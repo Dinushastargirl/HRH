@@ -47,8 +47,7 @@ export async function getEmployee(uid: string): Promise<UserProfile | null> {
 
 export async function saveEmployee(emp: UserProfile): Promise<void> {
   const { uid, ...data } = emp;
-  const { error } = await supabase.from('profiles').upsert({
-    id: uid,
+  const payload = {
     name: data.name,
     email: data.email,
     username: data.username,
@@ -60,19 +59,30 @@ export async function saveEmployee(emp: UserProfile): Promise<void> {
     status: data.status,
     join_date: data.joinDate,
     salary_a: data.salaryA,
-    salary_b: 0, // Salary B removed
-    epf: 2400, // Fixed EPF
+    salary_b: 0,
+    epf: data.epf,
     advances: data.advances || 0,
     cover: data.cover || 0,
     intensive: data.intensive || 0,
     travelling: data.travelling || 0,
-    net: (data.salaryA || 0) + (data.intensive || 0) + (data.travelling || 0) - 2400 - (data.advances || 0) - (data.cover || 0),
+    net: (data.salaryA || 0) + (data.intensive || 0) + (data.travelling || 0) - (data.epf || 0) - (data.advances || 0) - (data.cover || 0),
     performance_score: data.performanceScore,
     leave_quotas: data.leaveQuotas,
     used_leaves: data.usedLeaves,
     updated_at: new Date().toISOString(),
-  });
-  if (error) throw error;
+  };
+
+  // We check for existence first so standard users (who can only UPDATE their own profile) 
+  // don't try to INSERT (upsert triggers INSERT permission check in Supabase).
+  const { data: existing } = await supabase.from('profiles').select('id').eq('id', uid).maybeSingle();
+  
+  if (existing) {
+    const { error } = await supabase.from('profiles').update(payload).eq('id', uid);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase.from('profiles').insert({ id: uid, ...payload });
+    if (error) throw error;
+  }
 }
 
 export async function deleteEmployee(uid: string): Promise<void> {
@@ -114,13 +124,13 @@ export async function registerFullEmployee(emp: UserProfile, password?: string):
     status: emp.status || 'Available',
     join_date: emp.joinDate,
     salary_a: emp.salaryA,
-    salary_b: 0, // Salary B removed
-    epf: 2400, // Fixed EPF
+    salary_b: 0,
+    epf: emp.epf,
     advances: emp.advances || 0,
     cover: emp.cover || 0,
     intensive: emp.intensive || 0,
     travelling: emp.travelling || 0,
-    net: (emp.salaryA || 0) + (emp.intensive || 0) + (emp.travelling || 0) - 2400 - (emp.advances || 0) - (emp.cover || 0),
+    net: (emp.salaryA || 0) + (emp.intensive || 0) + (emp.travelling || 0) - (emp.epf || 0) - (emp.advances || 0) - (emp.cover || 0),
     performance_score: emp.performanceScore,
     leave_quotas: emp.leaveQuotas,
     used_leaves: emp.usedLeaves,
@@ -370,30 +380,51 @@ export async function deleteTask(id: string): Promise<void> {
 // ─── Payroll ─────────────────────────────────────────────────────────────────
 
 export async function getPayroll(uid?: string): Promise<PayrollRecord[]> {
-  let query = supabase.from('payroll').select('*').order('created_at', { ascending: false });
+  const employees = await getEmployees();
+  
+  let query = supabase
+    .from('payroll')
+    .select('*, prof:profiles(name), profiles(name)')
+    .order('created_at', { ascending: false });
+    
   if (uid) {
     query = query.eq('user_id', uid);
   }
+  
   const { data, error } = await query;
   if (error) throw error;
-  return (data || []).map(d => ({
-    id: d.id.toString(),
-    userId: d.user_id,
-    userName: '', // Would require join
-    month: d.month,
-    year: d.year,
-    salaryA: Number(d.salary_a),
-    salaryB: Number(d.salary_b),
-    epf: Number(d.epf),
-    advances: Number(d.advances),
-    cover: Number(d.cover),
-    intensive: Number(d.intensive),
-    travelling: Number(d.travelling),
-    netSalary: Number(d.net_salary),
-    status: d.status,
-    branch: d.branch,
-    createdAt: d.created_at
-  } as PayrollRecord));
+  
+  return (data || []).map(d => {
+    // Try multiple possible join keys from Supabase
+    const rawProfile = d.prof || d.profiles;
+    const profile = Array.isArray(rawProfile) ? rawProfile[0] : rawProfile;
+    
+    // Final fallback: If join failed, look up in the employees list we fetched earlier
+    let name = (profile as any)?.name;
+    if (!name) {
+      const match = employees.find(e => e.uid === d.user_id);
+      name = match?.name;
+    }
+
+    return {
+      id: d.id.toString(),
+      userId: d.user_id,
+      userName: name || 'Unknown',
+      month: d.month,
+      year: d.year,
+      salaryA: Number(d.salary_a),
+      salaryB: Number(d.salary_b),
+      epf: Number(d.epf),
+      advances: Number(d.advances),
+      cover: Number(d.cover),
+      intensive: Number(d.intensive),
+      travelling: Number(d.travelling),
+      netSalary: Number(d.net_salary),
+      status: d.status,
+      branch: d.branch,
+      createdAt: d.created_at
+    };
+  });
 }
 
 export async function generatePayroll(month: number, year: number): Promise<void> {
@@ -404,18 +435,19 @@ export async function generatePayroll(month: number, year: number): Promise<void
   for (const emp of employees) {
     const exists = existing?.find(p => p.user_id === emp.uid);
     if (!exists) {
+      const epf = Number(emp.epf); // Use the EPF from the employee's profile
       const { error } = await supabase.from('payroll').insert({
         user_id: emp.uid,
         month,
         year,
         salary_a: emp.salaryA,
         salary_b: 0,
-        epf: 2400,
+        epf,
         advances: emp.advances || 0,
         cover: emp.cover || 0,
         intensive: emp.intensive || 0,
         travelling: emp.travelling || 0,
-        net_salary: (emp.salaryA || 0) + (emp.intensive || 0) + (emp.travelling || 0) - 2400 - (emp.advances || 0) - (emp.cover || 0),
+        net_salary: (emp.salaryA || 0) + (emp.intensive || 0) + (emp.travelling || 0) - epf - (emp.advances || 0) - (emp.cover || 0),
         status: 'Pending',
         branch: emp.branch
       });
@@ -429,7 +461,7 @@ export async function updatePayroll(id: string, updates: Partial<PayrollRecord>)
     status: updates.status,
     salary_a: updates.salaryA,
     salary_b: 0,
-    epf: 2400,
+    epf: updates.epf,
     advances: updates.advances,
     cover: updates.cover,
     intensive: updates.intensive,

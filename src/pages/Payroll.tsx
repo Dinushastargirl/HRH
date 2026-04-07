@@ -12,6 +12,7 @@ import { motion } from 'motion/react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -172,12 +173,37 @@ function exportPayslipsToPDF(payrolls: PayrollRecord[], monthIdx: number, year: 
   doc.save(`Payroll_${monthName}_${year}.pdf`);
 }
 
+function exportToExcel(payrolls: PayrollRecord[], monthIdx: number, year: number) {
+  if (payrolls.length === 0) return;
+
+  const monthName = months[monthIdx] ?? 'Unknown';
+  const data = payrolls.map(p => ({
+    'Employee': p.userName || 'Unknown',
+    'Branch': p.branch || 'General',
+    'Month': `${months[p.month - 1] ?? '?'} ${p.year}`,
+    'Salary A': p.salaryA,
+    'EPF': p.epf,
+    'Advances': p.advances,
+    'Cover': p.cover,
+    'Intensive': p.intensive,
+    'Travelling': p.travelling,
+    'Net Payout': p.netSalary,
+    'Status': p.status
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Payroll');
+  XLSX.writeFile(workbook, `Payroll_${monthName}_${year}.xlsx`);
+}
+
 export default function Payroll() {
   const { user } = useAuth();
   const [payrolls, setPayrolls] = useState<PayrollRecord[]>([]);
   const [search, setSearch] = useState('');
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth());
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -210,12 +236,23 @@ export default function Payroll() {
   const handleExport = () => {
     if (filteredPayrolls.length === 0) return;
     setIsExporting(true);
-    // Small timeout lets the spinner render before the PDF blocks the thread
     setTimeout(() => {
       try {
         exportPayslipsToPDF(filteredPayrolls, Number(filterMonth), new Date().getFullYear());
       } finally {
         setIsExporting(false);
+      }
+    }, 50);
+  };
+
+  const handleExportExcel = () => {
+    if (filteredPayrolls.length === 0) return;
+    setIsExportingExcel(true);
+    setTimeout(() => {
+      try {
+        exportToExcel(filteredPayrolls, Number(filterMonth), new Date().getFullYear());
+      } finally {
+        setIsExportingExcel(false);
       }
     }, 50);
   };
@@ -229,6 +266,28 @@ export default function Payroll() {
         </div>
         <div className="flex gap-3">
           <button
+            onClick={handleExportExcel}
+            disabled={isExportingExcel || filteredPayrolls.length === 0}
+            className={cn(
+              "bg-white border border-zinc-200 text-zinc-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all",
+              filteredPayrolls.length === 0
+                ? "opacity-40 cursor-not-allowed"
+                : "hover:bg-zinc-50 hover:border-zinc-300 active:scale-95"
+            )}
+          >
+            {isExportingExcel ? (
+              <>
+                <div className="w-4 h-4 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin" />
+                Exporting Excel…
+              </>
+            ) : (
+              <>
+                <FileText size={18} />
+                Export Excel
+              </>
+            )}
+          </button>
+          <button
             onClick={handleExport}
             disabled={isExporting || filteredPayrolls.length === 0}
             className={cn(
@@ -241,12 +300,12 @@ export default function Payroll() {
             {isExporting ? (
               <>
                 <div className="w-4 h-4 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin" />
-                Exporting…
+                Exporting PDF…
               </>
             ) : (
               <>
                 <Download size={18} />
-                Export Payslips
+                Export PDF
               </>
             )}
           </button>

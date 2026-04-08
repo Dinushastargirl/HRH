@@ -531,19 +531,21 @@ export default function Dashboard() {
                 Daily Tasks
               </h3>
             </div>
-            <form onSubmit={addTask} className="mb-6">
-              <div className="relative">
-                <input 
-                  name="taskTitle"
-                  type="text" 
-                  placeholder="Add a new task..." 
-                  className="w-full pl-4 pr-12 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-                />
-                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-all">
-                  <Plus size={16} />
-                </button>
-              </div>
-            </form>
+            {isAdmin && (
+              <form onSubmit={addTask} className="mb-6">
+                <div className="relative">
+                  <input 
+                    name="taskTitle"
+                    type="text" 
+                    placeholder="Add a new task..." 
+                    className="w-full pl-4 pr-12 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                  />
+                  <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-all">
+                    <Plus size={16} />
+                  </button>
+                </div>
+              </form>
+            )}
             <div className="flex-1 space-y-3 overflow-y-auto max-h-[300px]">
               {tasks.length === 0 ? (
                 <div className="text-center py-8">
@@ -573,12 +575,14 @@ export default function Dashboard() {
                     >
                       {task.title}
                     </span>
-                    <button 
-                      onClick={() => deleteTask(task.id!)}
-                      className="p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {isAdmin && (
+                      <button 
+                        onClick={() => deleteTask(task.id!)}
+                        className="p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 ))
               )}

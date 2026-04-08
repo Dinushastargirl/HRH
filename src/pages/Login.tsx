@@ -114,9 +114,9 @@ export default function Login() {
           <div className="mt-8 p-4 bg-zinc-50 rounded-2xl border border-zinc-100">
             <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Employee Login Info</p>
             <div className="grid grid-cols-1 gap-1 text-[10px] font-bold text-zinc-600">
-              <div>Username: name.surname (e.g. dahami.divyanjali)</div>
-              <div>Password: firstname123 (e.g. dahami123)</div>
-              <div className="mt-2 text-orange-500">Example: dahami.divyanjali@hrpulse.com / dahami123</div>
+              <div>Username: name.surname (e.g. john.doe)</div>
+              <div>Password: firstname123 (e.g. john123)</div>
+              <div className="mt-2 text-orange-500">Example: john.doe@hrpulse.com / john123</div>
             </div>
           </div>
 

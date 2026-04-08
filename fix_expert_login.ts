@@ -12,7 +12,7 @@ async function fixLogin() {
 
   // 1. Get/Create Auth User
   const { data: { users } } = await supabase.auth.admin.listUsers();
-  let user = users.find(u => u.email === email);
+  let user = (users as any[]).find(u => u.email === email);
 
   if (!user) {
     const { data: newUser, error: createError } = await supabase.auth.admin.createUser({

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, DollarSign, Plus, Search, 
-  Filter, Edit2, Check, X, ArrowUpRight, ArrowDownRight
+  Filter, Edit2, Check, X, ArrowUpRight, ArrowDownRight, Lock
 } from 'lucide-react';
 import { PayrollRecord, UserProfile } from '../types';
 import * as supabaseService from '../services/supabaseService';
@@ -16,6 +16,7 @@ export default function ManagePayroll() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<Partial<PayrollRecord>>({});
   const [loading, setLoading] = useState(true);
+  const [justPaidIds, setJustPaidIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     loadData();
@@ -35,9 +36,15 @@ export default function ManagePayroll() {
   };
 
   const filteredPayrolls = payrolls.filter(p => {
-    const matchesSearch = p.userName.toLowerCase().includes(search.toLowerCase()) && p.status === 'Pending';
-    // HR cannot see their own payroll in management view
-    if (user?.role === 'hr' && p.userId === user.uid) return false;
+    const matchesSearch = p.userName.toLowerCase().includes(search.toLowerCase());
+    
+    // Only show Pending payrolls, but explicitly KEEP the ones they just paid in this session 
+    // so they can see the "Payment Processed" button successfully as requested.
+    if (p.status !== 'Pending' && (!p.id || !justPaidIds.has(p.id))) {
+      return false;
+    }
+    
+    // HR can see all pending payroll, but cannot edit their own (enforced below)
     return matchesSearch;
   });
 
@@ -69,7 +76,7 @@ export default function ManagePayroll() {
       loadData();
     } catch (err) {
       console.error('Error saving payroll:', err);
-      toast.error('Failed to update payroll');
+      toast.error('Failed to update: ' + (err.message || 'unknown error'));
     }
   };
 
@@ -77,10 +84,15 @@ export default function ManagePayroll() {
     try {
       await supabaseService.updatePayroll(id, { status: 'Paid' });
       toast.success('Marked as paid');
+      setJustPaidIds(prev => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
       loadData();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error processing payment:', err);
-      toast.error('Payment processing failed');
+      toast.error('Payment failed: ' + (err.message || 'unknown error'));
     }
   };
 
@@ -222,20 +234,41 @@ export default function ManagePayroll() {
                 </>
               ) : (
                 <>
-                  <button 
-                    onClick={() => setEditingId(p.id!)}
-                    className="px-4 py-3 bg-zinc-50 text-zinc-600 rounded-2xl font-bold text-xs hover:bg-zinc-100 transition-all flex items-center gap-2"
-                  >
-                    <Edit2 size={16} />
-                    Adjust
-                  </button>
-                  <button 
-                    onClick={() => handleMarkAsPaid(p.id!)}
-                    className="px-6 py-3 bg-orange-500 text-white rounded-2xl font-bold text-xs hover:bg-orange-600 transition-all shadow-lg shadow-orange-100 flex items-center gap-2"
-                  >
-                    <DollarSign size={16} />
-                    Process Payment
-                  </button>
+                  {(user?.role === 'super' || user?.role === 'owner' || (user?.role === 'hr' && p.userId !== user.uid)) ? (
+                    <>
+                      {p.status === 'Paid' || justPaidIds.has(p.id!) ? (
+                        <button 
+                          disabled
+                          className="px-6 py-3 bg-zinc-200 text-zinc-500 rounded-2xl font-bold text-xs shadow-inner flex items-center gap-2 cursor-not-allowed"
+                        >
+                          <Check size={16} />
+                          Payment Processed
+                        </button>
+                      ) : (
+                        <>
+                          <button 
+                            onClick={() => setEditingId(p.id!)}
+                            className="px-4 py-3 bg-zinc-50 text-zinc-600 rounded-2xl font-bold text-xs hover:bg-zinc-100 transition-all flex items-center gap-2"
+                          >
+                            <Edit2 size={16} />
+                            Adjust
+                          </button>
+                          <button 
+                            onClick={() => handleMarkAsPaid(p.id!)}
+                            className="px-6 py-3 bg-orange-500 text-white rounded-2xl font-bold text-xs hover:bg-orange-600 transition-all shadow-lg shadow-orange-100 flex items-center gap-2"
+                          >
+                            <DollarSign size={16} />
+                            Process Payment
+                          </button>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-[10px] font-bold text-zinc-400 uppercase tracking-widest shadow-inner">
+                      <Lock size={14} className="text-zinc-300" />
+                      Self-Management Restricted
+                    </div>
+                  )}
                 </>
               )}
             </div>

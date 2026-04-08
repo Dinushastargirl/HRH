@@ -457,18 +457,19 @@ export async function generatePayroll(month: number, year: number): Promise<void
 }
 
 export async function updatePayroll(id: string, updates: Partial<PayrollRecord>): Promise<void> {
-  const { error } = await supabase.from('payroll').update({
-    status: updates.status,
-    salary_a: updates.salaryA,
-    salary_b: 0,
-    epf: updates.epf,
-    advances: updates.advances,
-    cover: updates.cover,
-    intensive: updates.intensive,
-    travelling: updates.travelling,
-    net_salary: updates.netSalary,
-    updated_at: new Date().toISOString()
-  }).eq('id', id);
+  const payload: any = {};
+  if (updates.status !== undefined) payload.status = updates.status;
+  if (updates.salaryA !== undefined) payload.salary_a = updates.salaryA;
+  if (updates.salaryB !== undefined) payload.salary_b = updates.salaryB;
+  if (updates.epf !== undefined) payload.epf = updates.epf;
+  if (updates.advances !== undefined) payload.advances = updates.advances;
+  if (updates.cover !== undefined) payload.cover = updates.cover;
+  if (updates.intensive !== undefined) payload.intensive = updates.intensive;
+  if (updates.travelling !== undefined) payload.travelling = updates.travelling;
+  if (updates.netSalary !== undefined) payload.net_salary = updates.netSalary;
+  // Intentionally omit updated_at as it might not be a column in the database
+
+  const { error } = await supabase.from('payroll').update(payload).eq('id', id);
   if (error) throw error;
 }
 

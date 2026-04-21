@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, XCircle, Clock, Filter, 
   Search, Calendar, User, MessageSquare,
-  AlertCircle, Check, X, Camera, Plus
+  AlertCircle, Check, X, Camera, Plus, Trash2, Pencil
 } from 'lucide-react';
 import { LeaveRequest, UserRole } from '../types';
 import * as supabaseService from '../services/supabaseService';
@@ -370,17 +370,17 @@ export default function Leaves() {
                   <>
                     <button 
                       onClick={() => handleEdit(req)}
-                      className="p-3 bg-zinc-100 text-zinc-600 rounded-2xl hover:bg-zinc-200 transition-all"
+                      className="p-3 bg-zinc-100 text-zinc-600 rounded-2xl hover:bg-zinc-200 transition-all shadow-sm"
                       title="Edit"
                     >
-                      <Plus size={20} className="rotate-45" /> {/* Use Plus rotated for now or Pencil if I had it, but Plus is already imported */}
+                      <Pencil size={18} />
                     </button>
                     <button 
                       onClick={() => handleDelete(req.id!)}
-                      className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all"
+                      className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all shadow-sm"
                       title="Delete"
                     >
-                      <X size={20} />
+                      <Trash2 size={18} />
                     </button>
                   </>
                 ) : req.status === 'Pending' && !canApprove(req) ? (
@@ -389,9 +389,20 @@ export default function Leaves() {
                     <span className="text-[10px] font-black uppercase tracking-widest">Awaiting HR</span>
                   </div>
                 ) : (
-                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right">
-                    Processed by<br/>
-                    <span className="text-zinc-900">{req.approvedBy}</span>
+                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest text-right flex items-center gap-2">
+                    <div>
+                      Processed by<br/>
+                      <span className="text-zinc-900">{req.approvedBy}</span>
+                    </div>
+                    {req.status === 'Rejected' && (user?.role === 'hr' || user?.role === 'owner' || user?.role === 'super') && (
+                      <button 
+                        onClick={() => handleDelete(req.id!)}
+                        className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-all ml-2"
+                        title="Delete Rejected Request"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

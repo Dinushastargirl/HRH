@@ -31,6 +31,8 @@ export default function Dashboard() {
   const [leaveType, setLeaveType] = useState<LeaveType>('Annual');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('11:00');
   const [reason, setReason] = useState('');
   const [leaveImage, setLeaveImage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -164,17 +166,38 @@ export default function Dashboard() {
     e.preventDefault();
     if (!uid || !user) return;
     
+    // Quota validation
     const typeKey = leaveType.toLowerCase() as keyof typeof user.leaveQuotas;
-    const remaining = user.leaveQuotas[typeKey] - user.usedLeaves[typeKey];
+    let remaining = ((user.leaveQuotas as any)?.[typeKey] || 0) - ((user.usedLeaves as any)?.[typeKey] || 0);
     
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    if (leaveType === 'Short') {
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const monthShortLeaves = requests.filter(l => {
+        if (l.leaveType !== 'Short') return false;
+        const lDate = new Date(l.startDate);
+        return (lDate.getMonth() + 1 === currentMonth) && 
+               (lDate.getFullYear() === currentYear) &&
+               (l.status !== 'Rejected');
+      });
+      
+      const quotaPerMonth = 8;
+      const usedThisMonth = monthShortLeaves.length;
+      
+      if (usedThisMonth >= quotaPerMonth) {
+        toast.error(`Insufficient Short leave balance. Monthly limit (8) reached.`);
+        return;
+      }
+    } else {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-    if (diffDays > remaining) {
-      toast.error(`Insufficient ${leaveType} leave balance. Remaining: ${remaining} days.`);
-      return;
+      if (diffDays > remaining) {
+        toast.error(`Insufficient ${leaveType} leave balance. Remaining: ${remaining} days.`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -186,7 +209,9 @@ export default function Dashboard() {
         leaveType,
         reason,
         startDate: startDate,
-        endDate: endDate,
+        endDate: leaveType === 'Short' ? startDate : endDate,
+        startTime: leaveType === 'Short' ? startTime : null,
+        endTime: leaveType === 'Short' ? endTime : null,
         status: 'Pending',
         createdAt: new Date().toISOString(),
         imageUrl: leaveImage || null
@@ -199,6 +224,8 @@ export default function Dashboard() {
       setReason('');
       setStartDate('');
       setEndDate('');
+      setStartTime('09:00');
+      setEndTime('11:00');
       setLeaveImage(null);
       loadData();
     } catch (error: any) {
@@ -690,27 +717,54 @@ export default function Dashboard() {
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Start Date</label>
+                    <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">
+                      {leaveType.toLowerCase() === 'short' ? 'Date' : 'Start Date'}
+                    </label>
                     <input
                       type="date"
                       required
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
+                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">End Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-medium"
-                    />
-                  </div>
+                  {leaveType.toLowerCase() !== 'short' ? (
+                    <div>
+                      <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">End Date</label>
+                      <input
+                        type="date"
+                        required
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                       <div>
+                        <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">From (Time)</label>
+                        <input
+                          type="time"
+                          required
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className="w-full px-3 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">To (Time)</label>
+                        <input
+                          type="time"
+                          required
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className="w-full px-3 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2 ml-1">Reason</label>

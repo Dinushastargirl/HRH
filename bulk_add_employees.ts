@@ -20,8 +20,10 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 });
 
 const employees = [
-  { name: "Dahami Divyanjali", email: "dahami.divyanjali@hrpulse.com", password: "dahami123" },
-  { name: "Achini Vindya", email: "achini.vindya@hrpulse.com", password: "achini123" },
+  { name: "Dahami Divyanjali", email: "dahami.divyanjali@hrpulse.com" },
+  { name: "Achini Vindya", email: "achini.vindya@hrpulse.com" },
+  // ... (omitting lines for clarity in chunk, wait I should use AllowMultiple or specific lines)
+
   { name: "Dilini Sanarathna", email: "dilini.sanarathna@hrpulse.com", password: "dilini123" },
   { name: "Chamilka Botheju", email: "chamilka.botheju@hrpulse.com", password: "chamilka123" },
   { name: "A.V. Chamika Sonali", email: "chamika.sonali@hrpulse.com", password: "chamika123" },

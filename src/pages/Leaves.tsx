@@ -453,7 +453,7 @@ export default function Leaves() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">
-                      {leaveType === 'Short' ? 'Date' : 'Start Date'}
+                      {leaveType.toLowerCase() === 'short' ? 'Date' : 'Start Date'}
                     </label>
                     <input
                       type="date"
@@ -463,7 +463,7 @@ export default function Leaves() {
                       className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
                     />
                   </div>
-                  {leaveType !== 'Short' ? (
+                  {leaveType.toLowerCase() !== 'short' ? (
                     <div>
                       <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">End Date</label>
                       <input
@@ -477,7 +477,7 @@ export default function Leaves() {
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
                        <div>
-                        <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">From</label>
+                        <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">From (Time)</label>
                         <input
                           type="time"
                           required
@@ -487,7 +487,7 @@ export default function Leaves() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">To</label>
+                        <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">To (Time)</label>
                         <input
                           type="time"
                           required

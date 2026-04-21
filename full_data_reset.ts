@@ -74,7 +74,9 @@ async function resetAndImport() {
   console.log("🏗️ Re-importing 28 employees...");
   for (const emp of employeeData) {
     const email = `${emp.name.toLowerCase().replace(/\s+/g, '.')}@hrpulse.com`;
-    const password = `${emp.name.toLowerCase().split(' ')[0]}123`;
+    const nameParts = emp.name.split(' ').filter(p => !p.includes('.') && p.length > 2);
+    const firstName = nameParts.length > 0 ? nameParts[0] : emp.name.split(' ')[0];
+    const password = `${firstName.toLowerCase()}123`;
     
     // Check if auth user exists
     let userId: string;

@@ -366,7 +366,7 @@ export default function Leaves() {
                       <X size={20} />
                     </button>
                   </>
-                ) : req.status === 'Pending' && req.userId === user?.uid ? (
+                ) : req.status === 'Pending' && (req.userId === user?.uid || user?.role === 'hr' || user?.role === 'owner' || user?.role === 'super') ? (
                   <>
                     <button 
                       onClick={() => handleEdit(req)}

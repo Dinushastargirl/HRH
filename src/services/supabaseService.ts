@@ -284,32 +284,44 @@ export async function checkOut(uid: string): Promise<boolean> {
 // ─── Leave Requests ──────────────────────────────────────────────────────────
 
 export async function getLeaves(uid?: string): Promise<LeaveRequest[]> {
-  let query = supabase.from('leave_requests').select('*').order('created_at', { ascending: false });
+  // Join with profiles to get the user's name and role
+  let query = supabase
+    .from('leave_requests')
+    .select(`
+      *,
+      profiles:user_id (
+        name,
+        role
+      )
+    `)
+    .order('created_at', { ascending: false });
+
   if (uid) {
     query = query.eq('user_id', uid);
   }
   const { data, error } = await query;
   if (error) throw error;
   
-  // Note: In Firestore variant, user profile data was sometimes embedded. 
-  // In SQL, we usually join. For now, we'll return what's in the table.
-  return (data || []).map(d => ({
-    id: d.id.toString(),
-    userId: d.user_id,
-    userName: '', // Would require a join
-    userRole: 'employee', // Would require a join
-    leaveType: d.leave_type,
-    startDate: d.start_date,
-    endDate: d.end_date,
-    startTime: d.start_time,
-    endTime: d.end_time,
-    reason: d.reason,
-    status: d.status,
-    approvedBy: d.approved_by,
-    createdAt: d.created_at,
-    isUrgent: d.is_urgent,
-    imageUrl: d.image_url
-  } as LeaveRequest));
+  return (data || []).map(d => {
+    const profile = d.profiles as any;
+    return {
+      id: d.id.toString(),
+      userId: d.user_id,
+      userName: profile?.name || 'Unknown',
+      userRole: profile?.role || 'employee',
+      leaveType: d.leave_type,
+      startDate: d.start_date,
+      endDate: d.end_date,
+      startTime: d.start_time,
+      endTime: d.end_time,
+      reason: d.reason,
+      status: d.status,
+      approvedBy: d.approved_by,
+      createdAt: d.created_at,
+      isUrgent: d.is_urgent,
+      imageUrl: d.image_url
+    } as LeaveRequest;
+  });
 }
 
 export async function saveLeave(req: Omit<LeaveRequest, 'id'>): Promise<string> {

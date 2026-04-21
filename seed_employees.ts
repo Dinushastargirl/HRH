@@ -76,7 +76,7 @@ async function seed() {
     { name: 'Sachini Nirasha', email: 'sachini.nirasha@hrpulse.com', password: 'sachini123', branch: 'Kadawatha', salaryA: 30000, salaryB: 30000, net: 29100 },
     { name: 'Chaseera Sulani', email: 'chaseera.sulani@hrpulse.com', password: 'chaseera123', branch: 'Kadawatha', salaryA: 27000, salaryB: 30000, net: 25100 },
     { name: 'Geethangani Pieris', email: 'geethangani.pieris@hrpulse.com', password: 'geethangani123', branch: 'Kiribathgoda', salaryA: 30000, salaryB: 30000, net: 24500 },
-    { name: 'W.K. Eranclathi Perera', email: 'eranclathi.perera@hrpulse.com', password: 'eranclathi123', branch: 'Kiribathgoda', salaryA: 27000, salaryB: 30000, net: 26040 },
+    { name: 'W.K. Erandi Perera', email: 'erandi.perera@hrpulse.com', password: 'erandi123', branch: 'Kiribathgoda', salaryA: 27000, salaryB: 30000, net: 26040 },
     { name: 'W.A. Chandima Dilrukishi', email: 'chandima.dilrukishi@hrpulse.com', password: 'chandima123', branch: 'Kottawa', salaryA: 28000, salaryB: 30000, net: 30600 },
     { name: 'Rasika Priyangani', email: 'rasika.priyangani@hrpulse.com', password: 'rasika123', branch: 'Kottawa', salaryA: 34000, salaryB: 30000, net: 36600 },
     { name: 'A.M.N. Sanjana', email: 'am.n.sanjana@hrpulse.com', password: 'amn123', branch: 'Office', salaryA: 29750, salaryB: 30000, net: 35350 },

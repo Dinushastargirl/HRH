@@ -30,7 +30,7 @@ const employees = [
   { name: "Sachini Nirasha", email: "sachini.nirasha@hrpulse.com", password: "sachini123" },
   { name: "Chaseera Sulani", email: "chaseera.sulani@hrpulse.com", password: "chaseera123" },
   { name: "Geethangani Pieris", email: "geethangani.pieris@hrpulse.com", password: "geethangani123" },
-  { name: "W.K. Eranclathi Perera", email: "eranclathi.perera@hrpulse.com", password: "eranclathi123" },
+  { name: "W.K. Erandi Perera", email: "erandi.perera@hrpulse.com", password: "erandi123" },
   { name: "W.A. Chandima Dilrukishi", email: "chandima.dilrukishi@hrpulse.com", password: "chandima123" },
   { name: "Rasika Priyangani", email: "rasika.priyangani@hrpulse.com", password: "rasika123" },
   { name: "A.M.N. Sanjana", email: "am n.sanjana@hrpulse.com", password: "amn123" },

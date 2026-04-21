@@ -24,7 +24,7 @@ const employeeData = [
   { branch: "Kadawatha", name: "Sachini Nirasha", start: "7/1/2022", salaryA: 30000, epf: 2400, advances: 0, cover: 0, intensive: 1500, travelling: 0 },
   { branch: "Kadawatha", name: "Chaseera Sulani", start: "3/12/2024", salaryA: 27000, epf: 2400, advances: 0, cover: 0, intensive: 500, travelling: 0 },
   { branch: "Kirbathgoda", name: "Geethangani Pieris", start: "1/9/2019", salaryA: 30000, epf: 2400, advances: 0, cover: 10000, intensive: 3000, travelling: 3900 },
-  { branch: "Kirbathgoda", name: "W.K. Eranclathi Perera", start: "2/3/2026", salaryA: 27000, epf: 2400, advances: 0, cover: 0, intensive: 0, travelling: 1440 },
+  { branch: "Kirbathgoda", name: "W.K. Erandi Perera", start: "2/3/2026", salaryA: 27000, epf: 2400, advances: 0, cover: 0, intensive: 0, travelling: 1440 },
   { branch: "Kottawa", name: "W.A. Chandima Dilrukishi", start: "1/6/2015", salaryA: 28000, epf: 2400, advances: 0, cover: 0, intensive: 5000, travelling: 0 },
   { branch: "Kottawa", name: "Rasika Priyangani", start: "2/7/2017", salaryA: 34000, epf: 2400, advances: 0, cover: 0, intensive: 4000, travelling: 1000 },
   { branch: "Office", name: "A.M.N.Sanjana", start: "3/1/1997", salaryA: 29750, epf: 2400, advances: 0, cover: 0, intensive: 8000, travelling: 0 },

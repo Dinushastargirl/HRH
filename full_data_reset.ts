@@ -29,7 +29,7 @@ const employeeData = [
   {"name":"Sachini Nirasha","branch":"Kadawatha","joinDate":"2022-07-01","salaryA":30000,"epf":2400,"advances":0,"cover":0,"intensive":1500,"travelling":0},
   {"name":"Chaseera Sulani","branch":"Kadawatha","joinDate":"2024-03-12","salaryA":27000,"epf":2400,"advances":0,"cover":0,"intensive":500,"travelling":0},
   {"name":"Geethangani Pieris","branch":"Kirbathgoda","joinDate":"2019-01-09","salaryA":30000,"epf":2400,"advances":0,"cover":10000,"intensive":3000,"travelling":3900},
-  {"name":"W.K.Eranclathi Perera","branch":"Kirbathgoda","joinDate":"2026-02-03","salaryA":27000,"epf":2400,"advances":0,"cover":0,"intensive":0,"travelling":1440},
+  {"name":"W.K. Erandi Perera","branch":"Kirbathgoda","joinDate":"2026-02-03","salaryA":27000,"epf":2400,"advances":0,"cover":0,"intensive":0,"travelling":1440},
   {"name":"W.A.Chandima Dilrukishi","branch":"Kottawa","joinDate":"2015-01-06","salaryA":28000,"epf":2400,"advances":0,"cover":0,"intensive":5000,"travelling":0},
   {"name":"Rasika Priyangani","branch":"Kottawa","joinDate":"2017-02-07","salaryA":34000,"epf":2400,"advances":0,"cover":0,"intensive":4000,"travelling":1000},
   {"name":"A.M.N.Sanjana","branch":"Office","joinDate":"1997-03-01","salaryA":29750,"epf":2400,"advances":0,"cover":0,"intensive":8000,"travelling":0},

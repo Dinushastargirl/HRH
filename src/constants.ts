@@ -11,7 +11,7 @@ export const MOCK_EMPLOYEES_DATA = [
   { branch: 'Kadawatha', name: 'Sachini Nirasha', joinDate: '2022-07-01', salaryA: 30000, salaryB: 30000, epf: 2400, advances: 0, cover: 0, intensive: 1500, travelling: 0, net: 29100, role: 'employee' },
   { branch: 'Kadawatha', name: 'Chaseera Sulani', joinDate: '2024-03-12', salaryA: 27000, salaryB: 30000, epf: 2400, advances: 0, cover: 0, intensive: 500, travelling: 0, net: 25100, role: 'employee' },
   { branch: 'Kiribathgoda', name: 'Geethangani Pieris', joinDate: '2019-01-09', salaryA: 30000, salaryB: 30000, epf: 2400, advances: 0, cover: 0, intensive: 3000, travelling: 3900, net: 24500, role: 'employee' },
-  { branch: 'Kiribathgoda', name: 'W.k. Eranclathi Perera', joinDate: '2026-02-03', salaryA: 27000, salaryB: 30000, epf: 2400, advances: 0, cover: 0, intensive: 0, travelling: 1440, net: 26040, role: 'employee' },
+  { branch: 'Kiribathgoda', name: 'W.K. Erandi Perera', joinDate: '2026-02-03', salaryA: 27000, salaryB: 30000, epf: 2400, advances: 0, cover: 0, intensive: 0, travelling: 1440, net: 26040, role: 'employee' },
   { branch: 'Kottawa', name: 'W.A. Chandima Dilrukishi', joinDate: '2015-01-06', salaryA: 28000, salaryB: 30000, epf: 2400, advances: 0, cover: 0, intensive: 5000, travelling: 0, net: 30600, role: 'employee' },
   { branch: 'Kottawa', name: 'Rasika Priyangani', joinDate: '2017-02-07', salaryA: 34000, salaryB: 30000, epf: 2400, advances: 0, cover: 0, intensive: 4000, travelling: 1000, net: 36600, role: 'employee' },
   { branch: 'Office', name: 'A.M.N. Sanjana', joinDate: '1997-03-01', salaryA: 29750, salaryB: 30000, epf: 2400, advances: 0, cover: 0, intensive: 8000, travelling: 0, net: 35350, role: 'employee' },

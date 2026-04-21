@@ -301,6 +301,8 @@ export async function getLeaves(uid?: string): Promise<LeaveRequest[]> {
     leaveType: d.leave_type,
     startDate: d.start_date,
     endDate: d.end_date,
+    startTime: d.start_time,
+    endTime: d.end_time,
     reason: d.reason,
     status: d.status,
     approvedBy: d.approved_by,
@@ -316,6 +318,8 @@ export async function saveLeave(req: Omit<LeaveRequest, 'id'>): Promise<string> 
     leave_type: req.leaveType,
     start_date: req.startDate,
     end_date: req.endDate,
+    start_time: req.startTime,
+    end_time: req.endTime,
     reason: req.reason,
     status: req.status,
     is_urgent: req.isUrgent,
@@ -334,6 +338,29 @@ export async function updateLeave(
     approved_by: approvedBy,
     updated_at: new Date().toISOString()
   }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteLeave(id: string): Promise<void> {
+  const { error } = await supabase.from('leave_requests').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function updateLeaveRequest(id: string, req: Partial<LeaveRequest>): Promise<void> {
+  const payload: any = {};
+  if (req.leaveType) payload.leave_type = req.leaveType;
+  if (req.startDate) payload.start_date = req.startDate;
+  if (req.endDate) payload.end_date = req.endDate;
+  if (req.startTime) payload.start_time = req.startTime;
+  if (req.endTime) payload.end_time = req.endTime;
+  if (req.reason) payload.reason = req.reason;
+  if (req.status) payload.status = req.status;
+  if (req.isUrgent !== undefined) payload.is_urgent = req.isUrgent;
+  if (req.imageUrl) payload.image_url = req.imageUrl;
+  
+  payload.updated_at = new Date().toISOString();
+
+  const { error } = await supabase.from('leave_requests').update(payload).eq('id', id);
   if (error) throw error;
 }
 

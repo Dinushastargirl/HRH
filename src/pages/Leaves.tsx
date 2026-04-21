@@ -24,8 +24,11 @@ export default function Leaves() {
   const [leaveType, setLeaveType] = useState<LeaveType>('Annual');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('11:00');
   const [reason, setReason] = useState('');
   const [leaveImage, setLeaveImage] = useState<string | null>(null);
+  const [editingLeaveId, setEditingLeaveId] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!user) return;
@@ -50,17 +53,39 @@ export default function Leaves() {
     e.preventDefault();
     if (!user) return;
     
-    // Quick validation
+    // Quota validation
     const typeKey = leaveType.toLowerCase() as keyof typeof user.leaveQuotas;
-    const remaining = ((user.leaveQuotas as any)?.[typeKey] || 0) - ((user.usedLeaves as any)?.[typeKey] || 0);
+    let remaining = ((user.leaveQuotas as any)?.[typeKey] || 0) - ((user.usedLeaves as any)?.[typeKey] || 0);
     
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const diffDays = Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (leaveType === 'Short') {
+      // For short leave, quota is 8 per month. 
+      // We check how many 'Short' leaves are approved/pending in the current month.
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const monthShortLeaves = leaves.filter(l => {
+        if (l.leaveType !== 'Short') return false;
+        const lDate = new Date(l.startDate);
+        return (lDate.getMonth() + 1 === currentMonth) && 
+               (lDate.getFullYear() === currentYear) &&
+               (l.status !== 'Rejected');
+      });
+      
+      const quotaPerMonth = 8;
+      const usedThisMonth = monthShortLeaves.length;
+      
+      if (usedThisMonth >= quotaPerMonth && !editingLeaveId) {
+        toast.error(`Insufficient Short leave balance. Monthly limit (8) reached.`);
+        return;
+      }
+    } else {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffDays = Math.ceil(Math.abs(end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-    if (diffDays > remaining) {
-      toast.error(`Insufficient ${leaveType} leave balance.`);
-      return;
+      if (diffDays > remaining && !editingLeaveId) {
+        toast.error(`Insufficient ${leaveType} leave balance.`);
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -72,19 +97,29 @@ export default function Leaves() {
         leaveType,
         reason,
         startDate: startDate,
-        endDate: endDate,
+        endDate: leaveType === 'Short' ? startDate : endDate,
+        startTime: leaveType === 'Short' ? startTime : null,
+        endTime: leaveType === 'Short' ? endTime : null,
         status: 'Pending',
         createdAt: new Date().toISOString(),
       };
       if (leaveImage) leaveData.imageUrl = leaveImage;
 
-      await supabaseService.saveLeave(leaveData);
+      if (editingLeaveId) {
+        await supabaseService.updateLeaveRequest(editingLeaveId, leaveData);
+        toast.success('Leave request updated successfully!');
+      } else {
+        await supabaseService.saveLeave(leaveData);
+        toast.success('Leave request submitted successfully!');
+      }
       
-      toast.success('Leave request submitted successfully!');
       setIsModalOpen(false);
+      setEditingLeaveId(null);
       setReason('');
       setStartDate('');
       setEndDate('');
+      setStartTime('09:00');
+      setEndTime('11:00');
       setLeaveImage(null);
       loadData();
     } catch (error: any) {
@@ -112,6 +147,29 @@ export default function Leaves() {
       loadData();
     } catch (err) {
       toast.error('Failed to update request');
+    }
+  };
+
+  const handleEdit = (req: LeaveRequest) => {
+    setEditingLeaveId(req.id!);
+    setLeaveType(req.leaveType);
+    setStartDate(req.startDate);
+    setEndDate(req.endDate);
+    setStartTime(req.startTime || '09:00');
+    setEndTime(req.endTime || '11:00');
+    setReason(req.reason);
+    setLeaveImage(req.imageUrl || null);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this request?')) return;
+    try {
+      await supabaseService.deleteLeave(id);
+      toast.success('Request deleted');
+      loadData();
+    } catch (err) {
+      toast.error('Failed to delete request');
     }
   };
 
@@ -159,7 +217,10 @@ export default function Leaves() {
           ].map(q => (
             <div key={q.label} className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm">
               <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">{q.label} Balance</p>
-              <p className={cn("text-2xl font-black", q.color)}>{q.val} Days</p>
+              <p className={cn("text-2xl font-black", q.color)}>
+                {q.val} {q.label === 'Short' ? 'Leaves' : 'Days'}
+                {q.label === 'Short' && <span className="text-[10px] block opacity-60">per Month</span>}
+              </p>
             </div>
           ))}
         </div>
@@ -246,7 +307,13 @@ export default function Leaves() {
                   </div>
                   <div>
                     <p className="text-xs font-black text-zinc-900">{req.leaveType}</p>
-                    <p className="text-[10px] font-bold text-zinc-500">{formatDate(req.startDate)} - {formatDate(req.endDate)}</p>
+                    {req.leaveType === 'Short' ? (
+                      <p className="text-[10px] font-bold text-zinc-500">
+                        {formatDate(req.startDate)} • {req.startTime} - {req.endTime}
+                      </p>
+                    ) : (
+                      <p className="text-[10px] font-bold text-zinc-500">{formatDate(req.startDate)} - {formatDate(req.endDate)}</p>
+                    )}
                   </div>
                 </div>
 
@@ -299,6 +366,23 @@ export default function Leaves() {
                       <X size={20} />
                     </button>
                   </>
+                ) : req.status === 'Pending' && req.userId === user?.uid ? (
+                  <>
+                    <button 
+                      onClick={() => handleEdit(req)}
+                      className="p-3 bg-zinc-100 text-zinc-600 rounded-2xl hover:bg-zinc-200 transition-all"
+                      title="Edit"
+                    >
+                      <Plus size={20} className="rotate-45" /> {/* Use Plus rotated for now or Pencil if I had it, but Plus is already imported */}
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(req.id!)}
+                      className="p-3 bg-red-50 text-red-500 rounded-2xl hover:bg-red-100 transition-all"
+                      title="Delete"
+                    >
+                      <X size={20} />
+                    </button>
+                  </>
                 ) : req.status === 'Pending' && !canApprove(req) ? (
                   <div className="flex items-center gap-2 text-zinc-400 px-4 py-2 bg-zinc-50 rounded-xl border border-zinc-100">
                     <Clock size={16} />
@@ -334,8 +418,10 @@ export default function Leaves() {
               className="relative w-full max-w-lg bg-white rounded-4xl shadow-2xl border border-zinc-100 overflow-hidden"
             >
               <div className="p-8 border-b border-zinc-50 flex items-center justify-between bg-zinc-50/50">
-                <h2 className="text-2xl font-black text-zinc-900">Request Time Off</h2>
-                <button onClick={() => setIsModalOpen(false)} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-xl transition-all">
+                <h2 className="text-2xl font-black text-zinc-900">
+                  {editingLeaveId ? 'Edit Leave Request' : 'Apply for Leave'}
+                </h2>
+                <button onClick={() => { setIsModalOpen(false); setEditingLeaveId(null); }} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-xl transition-all">
                   <XCircle size={24} />
                 </button>
               </div>
@@ -353,9 +439,11 @@ export default function Leaves() {
                     <option value="Short">Short Leave</option>
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Start Date</label>
+                    <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">
+                      {leaveType === 'Short' ? 'Date' : 'Start Date'}
+                    </label>
                     <input
                       type="date"
                       required
@@ -364,16 +452,41 @@ export default function Leaves() {
                       className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">End Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
-                    />
-                  </div>
+                  {leaveType !== 'Short' ? (
+                    <div>
+                      <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">End Date</label>
+                      <input
+                        type="date"
+                        required
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="w-full px-5 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                       <div>
+                        <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">From</label>
+                        <input
+                          type="time"
+                          required
+                          value={startTime}
+                          onChange={(e) => setStartTime(e.target.value)}
+                          className="w-full px-3 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">To</label>
+                        <input
+                          type="time"
+                          required
+                          value={endTime}
+                          onChange={(e) => setEndTime(e.target.value)}
+                          className="w-full px-3 py-4 rounded-2xl bg-zinc-50 border border-zinc-100 focus:ring-2 focus:ring-orange-500 focus:bg-white outline-none transition-all font-bold text-zinc-800"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-black text-zinc-500 uppercase tracking-widest mb-2 ml-1">Reason</label>

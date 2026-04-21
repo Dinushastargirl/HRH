@@ -21,7 +21,7 @@ CREATE TABLE public.profiles (
   net NUMERIC(15, 2) DEFAULT 0,
   performance_score NUMERIC(5, 2) DEFAULT 0,
   must_reset_password BOOLEAN DEFAULT TRUE,
-  leave_quotas JSONB DEFAULT '{"annual": 14, "sick": 7, "casual": 7, "short": 0}'::JSONB,
+  leave_quotas JSONB DEFAULT '{"annual": 14, "sick": 7, "casual": 7, "short": 8}'::JSONB,
   used_leaves JSONB DEFAULT '{"annual": 0, "sick": 0, "casual": 0, "short": 0}'::JSONB,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -46,6 +46,8 @@ CREATE TABLE public.leave_requests (
   leave_type TEXT NOT NULL CHECK (leave_type IN ('Annual', 'Sick', 'Casual', 'Short')),
   start_date DATE NOT NULL,
   end_date DATE NOT NULL,
+  start_time TEXT,
+  end_time TEXT,
   reason TEXT,
   status TEXT NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending', 'Approved', 'Rejected')),
   approved_by UUID REFERENCES public.profiles(id),
@@ -134,6 +136,8 @@ CREATE POLICY "Management manage attendance" ON public.attendance FOR ALL USING 
 -- POLICIES: LEAVE REQUESTS
 CREATE POLICY "Users view own leaves" ON public.leave_requests FOR SELECT USING (auth.uid() = user_id OR is_management());
 CREATE POLICY "Users insert own leave" ON public.leave_requests FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users update own pending leave" ON public.leave_requests FOR UPDATE USING (auth.uid() = user_id AND status = 'Pending');
+CREATE POLICY "Users delete own pending leave" ON public.leave_requests FOR DELETE USING (auth.uid() = user_id AND status = 'Pending');
 CREATE POLICY "Management manage leaves" ON public.leave_requests FOR ALL USING (is_management());
 
 -- POLICIES: TASKS

@@ -58,7 +58,7 @@ async function seed() {
       salaryA: 0, salaryB: 0, epf: 0,
       advances: 0, cover: 0, intensive: 0, travelling: 0, net: 0,
       performanceScore: 100,
-      leaveQuotas: { annual: 20, sick: 10, casual: 7, short: 2 },
+      leaveQuotas: { annual: 14, sick: 7, casual: 7, short: 8 },
       usedLeaves: { annual: 0, sick: 0, casual: 0, short: 0 },
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     }, { merge: true });
@@ -118,7 +118,7 @@ async function seed() {
         travelling: 0,
         net: emp.net,
         performanceScore: 85,
-        leaveQuotas: { annual: 20, sick: 10, casual: 7, short: 2 },
+        leaveQuotas: { annual: 14, sick: 7, casual: 7, short: 8 },
         usedLeaves: { annual: 0, sick: 0, casual: 0, short: 0 },
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });

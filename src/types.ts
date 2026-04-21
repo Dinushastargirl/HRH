@@ -57,6 +57,8 @@ export interface LeaveRequest {
   leaveType: LeaveType;
   startDate: any;
   endDate: any;
+  startTime?: string;
+  endTime?: string;
   reason: string;
   status: LeaveStatus;
   approvedBy?: string;

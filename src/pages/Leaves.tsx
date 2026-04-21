@@ -430,7 +430,7 @@ export default function Leaves() {
             >
               <div className="p-8 border-b border-zinc-50 flex items-center justify-between bg-zinc-50/50">
                 <h2 className="text-2xl font-black text-zinc-900">
-                  {editingLeaveId ? 'Edit Leave Request' : 'Apply for Leave'}
+                  {editingLeaveId ? 'Edit Leave Request' : 'Apply for Leave (Latest Version)'}
                 </h2>
                 <button onClick={() => { setIsModalOpen(false); setEditingLeaveId(null); }} className="p-2 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 rounded-xl transition-all">
                   <XCircle size={24} />

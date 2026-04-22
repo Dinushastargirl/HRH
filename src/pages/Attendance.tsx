@@ -3,6 +3,7 @@ import {
   Clock, ArrowUpRight, ArrowDownRight, Calendar, 
   UserCheck, Timer, Search, Filter, Download
 } from 'lucide-react';
+import { utils, writeFile } from 'xlsx';
 import { AttendanceRecord, UserProfile } from '../types';
 import * as supabaseService from '../services/supabaseService';
 import { useAuth } from '../hooks/useAuth';
@@ -52,6 +53,48 @@ export default function Attendance() {
 
   const getEmpName = (uid: string) => employees.find(e => e.uid === uid)?.name || 'Unknown';
 
+  const handleExport = () => {
+    if (filteredRecords.length === 0) {
+      toast.error('No records to export');
+      return;
+    }
+
+    const exportData = filteredRecords.map(record => {
+      const emp = employees.find(e => e.uid === record.userId);
+      const checkInDate = new Date(record.checkIn);
+      const checkOutDate = record.checkOut ? new Date(record.checkOut) : null;
+      
+      let workHours = 'N/A';
+      if (checkOutDate) {
+        const diff = (checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60);
+        workHours = diff.toFixed(2);
+      }
+
+      return {
+        'Employee Name': emp?.name || 'Unknown',
+        'Branch': emp?.branch || 'N/A',
+        'Date': record.date,
+        'Check-In': checkInDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        'Check-Out': checkOutDate ? checkOutDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--',
+        'Is Late': record.isLate ? 'Yes' : 'No',
+        'Is Early Out': record.isEarlyOut ? 'Yes' : 'No',
+        'Status': record.checkOut ? 'Completed' : 'Active',
+        'Work Hours': workHours
+      };
+    });
+
+    const ws = utils.json_to_sheet(exportData);
+    const wb = utils.book_new();
+    utils.book_append_sheet(wb, ws, 'Attendance Log');
+    
+    // Auto-size columns for better readability
+    const max_width = exportData.reduce((w, r) => Math.max(w, r['Employee Name'].length), 10);
+    ws['!cols'] = [{ wch: max_width + 5 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 10 }, { wch: 12 }];
+
+    writeFile(wb, `HR_Pulse_Attendance_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success('Attendance log exported successfully!');
+  };
+
   return (
     <div className="space-y-8 pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -92,7 +135,10 @@ export default function Attendance() {
               </button>
             </div>
           )}
-          <button className="bg-white border border-zinc-200 text-zinc-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all">
+          <button 
+            onClick={handleExport}
+            className="bg-white border border-zinc-200 text-zinc-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all"
+          >
             <Download size={18} />
             Export Logs
           </button>

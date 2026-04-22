@@ -26,6 +26,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [selectedTaskUserId, setSelectedTaskUserId] = useState<string | null>(null);
   
   // Form state
   const [leaveType, setLeaveType] = useState<LeaveType>('Annual');
@@ -61,7 +62,7 @@ export default function Dashboard() {
         supabaseService.getEmployees(),
         supabaseService.getLeaves(isManagement ? undefined : uid),
         supabaseService.getAttendance(isManagement ? undefined : uid),
-        supabaseService.getTasks(uid)
+        supabaseService.getTasks(selectedTaskUserId || uid!)
       ]);
 
       setEmployees(empData);
@@ -77,10 +78,14 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (uid && !selectedTaskUserId) {
+      setSelectedTaskUserId(uid);
+    }
+  }, [uid]);
+
+  useEffect(() => {
     loadData();
-    // In a real app with Supabase, we would set up real-time subscriptions here
-    // For now, we'll use a standard fetch to get the migration working.
-  }, [uid, user?.role]);
+  }, [uid, user?.role, selectedTaskUserId]);
 
   // Live Performance Calculation logic (mirrors Performance page)
   const getLiveMetrics = (targetUid: string) => {
@@ -149,10 +154,11 @@ export default function Dashboard() {
     e.preventDefault();
     const form = e.currentTarget;
     const title = (form.elements.namedItem('taskTitle') as HTMLInputElement).value;
-    if (!title || !uid) return;
+    const targetId = selectedTaskUserId || uid;
+    if (!title || !targetId) return;
 
     await supabaseService.saveTask({
-      userId: uid,
+      userId: targetId,
       title,
       completed: false,
       createdAt: new Date().toISOString(),
@@ -557,22 +563,34 @@ export default function Dashboard() {
                 <ListTodo size={18} className="text-orange-500" />
                 Daily Tasks
               </h3>
+              {isAdmin && (
+                <select 
+                  value={selectedTaskUserId || ''} 
+                  onChange={(e) => setSelectedTaskUserId(e.target.value)}
+                  className="text-[10px] uppercase tracking-widest font-black bg-zinc-50 border border-zinc-100 rounded-lg px-3 py-1.5 outline-none focus:ring-2 focus:ring-orange-500 transition-all cursor-pointer"
+                >
+                  <option value={uid!}>My Workspace</option>
+                  <optgroup label="Employees">
+                    {employees.filter(e => e.uid !== uid).map(emp => (
+                      <option key={emp.uid} value={emp.uid}>{emp.name}</option>
+                    ))}
+                  </optgroup>
+                </select>
+              )}
             </div>
-            {isAdmin && (
-              <form onSubmit={addTask} className="mb-6">
-                <div className="relative">
-                  <input 
-                    name="taskTitle"
-                    type="text" 
-                    placeholder="Add a new task..." 
-                    className="w-full pl-4 pr-12 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
-                  />
-                  <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-all">
-                    <Plus size={16} />
-                  </button>
-                </div>
-              </form>
-            )}
+            <form onSubmit={addTask} className="mb-6">
+              <div className="relative">
+                <input 
+                  name="taskTitle"
+                  type="text" 
+                  placeholder="Add a new task..." 
+                  className="w-full pl-4 pr-12 py-3 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm focus:ring-2 focus:ring-orange-500 outline-none transition-all"
+                />
+                <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-zinc-900 text-white rounded-xl hover:bg-zinc-800 transition-all">
+                  <Plus size={16} />
+                </button>
+              </div>
+            </form>
             <div className="flex-1 space-y-3 overflow-y-auto max-h-[300px]">
               {tasks.length === 0 ? (
                 <div className="text-center py-8">
@@ -590,8 +608,8 @@ export default function Dashboard() {
                     <div 
                       onClick={() => toggleTask(task.id!)}
                       className={cn(
-                        "w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer",
-                        task.completed ? "bg-orange-500 border-orange-500 text-white" : "border-zinc-300 group-hover:border-orange-400"
+                        "w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer shadow-sm",
+                        task.completed ? "bg-green-500 border-green-500 text-white" : "border-zinc-300 group-hover:border-orange-400 bg-white"
                       )}
                     >
                       {task.completed && <CheckCircle2 size={12} />}
@@ -602,14 +620,12 @@ export default function Dashboard() {
                     >
                       {task.title}
                     </span>
-                    {isAdmin && (
-                      <button 
-                        onClick={() => deleteTask(task.id!)}
-                        className="p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => deleteTask(task.id!)}
+                      className="p-1.5 text-zinc-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 ))
               )}

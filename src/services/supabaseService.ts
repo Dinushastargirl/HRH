@@ -358,6 +358,11 @@ export async function deleteLeave(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteAttendance(id: string): Promise<void> {
+  const { error } = await supabase.from('attendance').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function updateLeaveRequest(id: string, req: Partial<LeaveRequest>): Promise<void> {
   const payload: any = {};
   if (req.leaveType) payload.leave_type = req.leaveType;

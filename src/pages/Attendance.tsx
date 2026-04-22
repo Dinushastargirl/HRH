@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Clock, ArrowUpRight, ArrowDownRight, Calendar, 
-  UserCheck, Timer, Search, Filter, Download
+  UserCheck, Timer, Search, Filter, Download, Trash2
 } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 import { AttendanceRecord, UserProfile } from '../types';
@@ -135,6 +134,29 @@ export default function Attendance() {
               </button>
             </div>
           )}
+          <button 
+            onClick={async () => {
+              const targetEmp = employees.find(e => e.name === 'Dahami Divyanjali');
+              if (!targetEmp) {
+                toast.error('Dummy employee not found');
+                return;
+              }
+              const dummyRecords = records.filter(r => r.userId === targetEmp.uid);
+              if (dummyRecords.length === 0) {
+                toast.info('No dummy records to clean');
+                return;
+              }
+              for (const r of dummyRecords) {
+                await supabaseService.deleteAttendance(r.id!);
+              }
+              toast.success('Dummy records cleared!');
+              loadData();
+            }}
+            className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-red-100 transition-all"
+          >
+            <Trash2 size={18} />
+            Clean Dummy Data
+          </button>
           <button 
             onClick={handleExport}
             className="bg-white border border-zinc-200 text-zinc-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all"

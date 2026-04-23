@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  UserCheck, Timer, Search, Filter, Download, Trash2
+  UserCheck, Timer, Search, Filter, Download, Trash2,
+  Clock, ArrowUpRight, ArrowDownRight, Calendar
 } from 'lucide-react';
 import { utils, writeFile } from 'xlsx';
 import { AttendanceRecord, UserProfile } from '../types';

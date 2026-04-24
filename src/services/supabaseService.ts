@@ -245,7 +245,7 @@ export async function checkIn(uid: string): Promise<boolean> {
   }).format(now);
   
   const [hours, minutes] = slTime.split(':').map(Number);
-  const isLate = hours > 9 || (hours === 9 && minutes > 0);
+  const isLate = hours > 9 || (hours === 9 && minutes > 10);
   
   await saveAttendance({ 
     userId: uid, 
@@ -271,8 +271,8 @@ export async function checkOut(uid: string): Promise<boolean> {
     hour12: false
   }).format(now);
   
-  const [hours] = slTime.split(':').map(Number);
-  const isEarlyOut = hours < 17;
+  const [hours, minutes] = slTime.split(':').map(Number);
+  const isEarlyOut = hours < 17 || (hours === 17 && minutes < 15);
   
   await updateAttendance(existing.id, { 
     checkOut: now.toISOString(), 

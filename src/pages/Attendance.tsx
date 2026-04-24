@@ -76,8 +76,8 @@ export default function Attendance() {
         'Date': record.date,
         'Check-In': checkInDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         'Check-Out': checkOutDate ? checkOutDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--',
-        'Is Late': record.isLate ? 'Yes' : 'No',
-        'Is Early Out': record.isEarlyOut ? 'Yes' : 'No',
+        'Is Late (After 09:10 AM)': record.isLate ? 'Yes' : 'No',
+        'Is Early Out (Before 05:15 PM)': record.isEarlyOut ? 'Yes' : 'No',
         'Status': record.checkOut ? 'Completed' : 'Active',
         'Work Hours': workHours
       };
@@ -105,17 +105,17 @@ export default function Attendance() {
             <div className="flex items-center gap-1.5">
               <Clock size={14} className="text-zinc-400" />
               <span className="text-zinc-500">Standard Shift:</span>
-              <span className="text-zinc-900">09:00 AM - 05:00 PM</span>
+              <span className="text-zinc-900">08:30 AM - 06:00 PM</span>
             </div>
             <div className="w-px h-3 bg-zinc-300 hidden sm:block"></div>
             <div className="flex items-center gap-1.5">
               <span className="text-red-500">Late In:</span>
-              <span className="text-zinc-900">After 09:00 AM</span>
+              <span className="text-zinc-900">After 09:10 AM</span>
             </div>
             <div className="w-px h-3 bg-zinc-300 hidden sm:block"></div>
             <div className="flex items-center gap-1.5">
               <span className="text-amber-500">Early Out:</span>
-              <span className="text-zinc-900">Before 05:00 PM</span>
+              <span className="text-zinc-900">Before 05:15 PM</span>
             </div>
           </div>
         </div>

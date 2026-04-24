@@ -100,7 +100,24 @@ export default function Attendance() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-zinc-900">Attendance Log</h1>
-          <p className="text-zinc-500 font-medium">Track daily work hours and shifts</p>
+          <p className="text-zinc-500 font-medium mb-3">Track daily work hours and shifts</p>
+          <div className="inline-flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold bg-zinc-50 border border-zinc-200 rounded-xl px-4 py-2">
+            <div className="flex items-center gap-1.5">
+              <Clock size={14} className="text-zinc-400" />
+              <span className="text-zinc-500">Standard Shift:</span>
+              <span className="text-zinc-900">09:00 AM - 05:00 PM</span>
+            </div>
+            <div className="w-px h-3 bg-zinc-300 hidden sm:block"></div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-red-500">Late In:</span>
+              <span className="text-zinc-900">After 09:00 AM</span>
+            </div>
+            <div className="w-px h-3 bg-zinc-300 hidden sm:block"></div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-amber-500">Early Out:</span>
+              <span className="text-zinc-900">Before 05:00 PM</span>
+            </div>
+          </div>
         </div>
         <div className="flex flex-col md:flex-row md:items-center gap-4">
           {user?.role === 'employee' && (
@@ -137,26 +154,23 @@ export default function Attendance() {
           )}
           <button 
             onClick={async () => {
-              const targetEmp = employees.find(e => e.name === 'Dahami Divyanjali');
-              if (!targetEmp) {
-                toast.error('Dummy employee not found');
+              if (records.length === 0) {
+                toast.info('No attendance records to clear');
                 return;
               }
-              const dummyRecords = records.filter(r => r.userId === targetEmp.uid);
-              if (dummyRecords.length === 0) {
-                toast.info('No dummy records to clean');
+              if (!window.confirm('Are you sure you want to completely clear ALL attendance logs? This action cannot be undone.')) {
                 return;
               }
-              for (const r of dummyRecords) {
+              for (const r of records) {
                 await supabaseService.deleteAttendance(r.id!);
               }
-              toast.success('Dummy records cleared!');
+              toast.success('All attendance records cleared!');
               loadData();
             }}
             className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-red-100 transition-all"
           >
             <Trash2 size={18} />
-            Clean Dummy Data
+            Clear All Logs
           </button>
           <button 
             onClick={handleExport}

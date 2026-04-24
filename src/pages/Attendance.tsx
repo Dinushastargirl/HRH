@@ -153,26 +153,6 @@ export default function Attendance() {
             </div>
           )}
           <button 
-            onClick={async () => {
-              if (records.length === 0) {
-                toast.info('No attendance records to clear');
-                return;
-              }
-              if (!window.confirm('Are you sure you want to completely clear ALL attendance logs? This action cannot be undone.')) {
-                return;
-              }
-              for (const r of records) {
-                await supabaseService.deleteAttendance(r.id!);
-              }
-              toast.success('All attendance records cleared!');
-              loadData();
-            }}
-            className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-red-100 transition-all"
-          >
-            <Trash2 size={18} />
-            Clear All Logs
-          </button>
-          <button 
             onClick={handleExport}
             className="bg-white border border-zinc-200 text-zinc-600 px-4 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-zinc-50 transition-all"
           >
